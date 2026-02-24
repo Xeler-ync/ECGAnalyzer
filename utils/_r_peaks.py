@@ -320,7 +320,13 @@ def plot_r_peak_detection_comparison(
         ax = axes[idx // COL, idx % COL] if n_methods > 1 else axes
 
         # Plot ECG signal
-        ax.plot(time_axis, filtered_signal, "b-", linewidth=1, label="ECG Signal")
+        ax.plot(
+            time_axis,
+            filtered_signal,
+            "b-",
+            linewidth=1,
+            # label="ECG Signal",
+        )
 
         # Plot R peaks
         ax.plot(
@@ -328,13 +334,13 @@ def plot_r_peak_detection_comparison(
             filtered_signal[peaks],
             "o",
             color="r",
-            markersize=8,
-            label="R Peaks",
+            markersize=3,
+            # label="R Peaks",
         )
 
         # Set title and labels
         ax.set_title(
-            f"R Peak Detection: {method} Method (Lead V{lead_number})",
+            f"{method}",
             fontsize=12,
             fontweight="bold",
         )
@@ -346,5 +352,7 @@ def plot_r_peak_detection_comparison(
         if idx == n_methods - 1:
             ax.set_xlabel("Time (seconds)")
 
-    plt.tight_layout()
+    plt.subplots_adjust(
+        left=0.036, bottom=0.029, right=0.997, top=0.974, wspace=0.152, hspace=0.426
+    )
     plt.show()
