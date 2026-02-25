@@ -15,7 +15,7 @@ PLOT_CONFIG = {
     "heartbeats_overlay_original": True,
     "heartbeats_overlay_normalized": True,
     "single_heartbeat_normalized": True,
-    "multiple_leads_normalized(V1,II,V3)": True,
+    "multiple_leads_normalized(V1,V2,V3)": True,
     "multiple_leads_normalized(ALL)": True,
     "original_vs_normalized_multiple_leads": True,
 }

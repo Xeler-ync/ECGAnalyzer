@@ -377,9 +377,9 @@ print(f"EXTRACTING HEARTBEATS FROM ALL LEADS USING II R PEAK DETECTION")
 print(f"{'='*80}")
 
 # Define which leads to process (0-11 for all 12 leads)
-# Lead indices: 0=I, 1=II, 2=III, 3=aVR, 4=aVL, 5=aVF, 6=V1, 7=II, 8=V3, 9=V4, 10=V5, 11=V6
-lead_names = ["I", "II", "III", "aVR", "aVL", "aVF", "V1", "II", "V3", "V4", "V5", "V6"]
-leads_to_process = [0, 6, 7, 8, 9, 10, 11]  # I, V1, II, V3, V4, V5, V6
+# Lead indices: 0=I, 1=II, 2=III, 3=aVR, 4=aVL, 5=aVF, 6=V1, 7=V2, 8=V3, 9=V4, 10=V5, 11=V6
+lead_names = ["I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"]
+leads_to_process = [0, 6, 7, 8, 9, 10, 11]  # I, V1, V2, V3, V4, V5, V6
 
 # Dictionary to store results for all leads
 all_leads_data = {}
@@ -418,11 +418,11 @@ for lead_idx in leads_to_process:
         print(f"\nLead {lead_name}: No heartbeats extracted")
 
 
-# Plot V1, II, V3 together
-if PLOT_CONFIG["multiple_leads_normalized(V1,II,V3)"]:
+# Plot V1, V2, V3 together
+if PLOT_CONFIG["multiple_leads_normalized(V1,V2,V3)"]:
     plot_multiple_leads_normalized(
         all_leads_normalized,
-        [6, 7, 8],  # V1, II, V3
+        [6, 7, 8],  # V1, V2, V3
         lead_names,
         SAMPLING_RATE,
         max_beats=15,
@@ -441,7 +441,7 @@ if PLOT_CONFIG["original_vs_normalized_multiple_leads"]:
     plot_original_vs_normalized_multiple_leads(
         all_leads_data,
         all_leads_normalized,
-        [6, 7, 8, 9],  # V1, II, V3, V4
+        [6, 7, 8, 9],  # V1, V2, V3, V4
         lead_names,
         SAMPLING_RATE,
         max_beats=8,
