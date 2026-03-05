@@ -221,3 +221,6 @@ __marimo__/
 .streamlit/secrets.toml
 
 PTB-XL
+
+# config file
+config/
