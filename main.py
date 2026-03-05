@@ -54,7 +54,8 @@ from utils._heartbeats import (
     split_and_resample_heartbeats,
     plot_heartbeats_overlay_normalized,
     plot_heartbeats_overlay_original,
-    plot_single_heartbeat_normalized,
+    plot_average_heartbeat_with_variance,
+    plot_heartbeat_evaluation_all,
 )
 from utils._leads import (
     plot_multiple_leads_normalized,
@@ -332,10 +333,11 @@ if PLOT_CONFIG["heartbeats_overlay_normalized"]:
 
 # Plot individual normalized heartbeats
 if PLOT_CONFIG["single_heartbeat_normalized"]:
-    if len(normalized_II) > 5:
-        plot_single_heartbeat_normalized(normalized_II[5], SAMPLING_RATE, "II", 6)
-    if len(normalized_II) > 10:
-        plot_single_heartbeat_normalized(normalized_II[10], SAMPLING_RATE, "II", 11)
+    plot_average_heartbeat_with_variance(normalized_II, SAMPLING_RATE, "II")
+
+# Evaluate all normalized heartbeats
+if PLOT_CONFIG["heartbeat_evaluation_all"]:
+    plot_heartbeat_evaluation_all(r_peaks, filtered_hp, SAMPLING_RATE, "Lead II")
 
 # Print comprehensive evaluation results
 print(f"\n{'='*80}")

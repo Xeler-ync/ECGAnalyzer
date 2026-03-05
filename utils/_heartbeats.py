@@ -1,3 +1,4 @@
+from typing import Tuple, Dict
 import pandas as pd
 import numpy as np
 import wfdb
@@ -237,30 +238,84 @@ def plot_heartbeats_overlay_original(
     plt.show()
 
 
-def plot_single_heartbeat_normalized(
-    normalized_heartbeat, sampling_rate, lead_name, beat_number
+def plot_average_heartbeat_with_variance(
+    normalized_heartbeat, sampling_rate, lead_name
 ):
-    """Plot a single normalized heartbeat with R peak marked"""
+    """
+    Plot average heartbeat with variance overlay and all individual heartbeats in background
+
+    Args:
+    heartbeats: List of heartbeat data (dictionaries)
+    sampling_rate: Sampling rate in Hz
+    lead_name: Name of the ECG lead
+    """
+    if not normalized_heartbeat:
+        return
+
     fig, ax = plt.subplots(figsize=(12, 6))
 
-    total_samples = len(normalized_heartbeat["signal"])
-    time_axis = np.arange(total_samples) / sampling_rate * 1000  # Convert to ms
+    # Extract signals from dictionaries
+    signals = [hb["signal"] for hb in normalized_heartbeat]
+    # Calculate average heartbeat
+    avg_heartbeat = np.mean(signals, axis=0)
+    # Calculate standard deviation
+    std_heartbeat = np.std(signals, axis=0)
+    # Calculate pairwise standard deviation
+    avg_std = np.mean(std_heartbeat)
 
-    ax.plot(
-        time_axis, normalized_heartbeat["signal"], "b-", linewidth=2, label="ECG Signal"
+    std_std_heartbeat = np.std(std_heartbeat)
+
+    # Create time axis
+    duration = len(avg_heartbeat) / sampling_rate
+    time_axis = np.linspace(0, duration, len(avg_heartbeat))
+
+    # Plot all individual heartbeats with high transparency
+    for signal in signals:
+        ax.plot(time_axis, signal, alpha=0.7, linewidth=0.5)
+
+    # Get R-peak position
+    r_peak_pos = normalized_heartbeat[0]["r_peak_relative"]
+    r_peak_time = time_axis[r_peak_pos]
+
+    # Plot vertical dashed line at R-peak position
+    ax.axvline(x=r_peak_time, color="red", linestyle="--", alpha=0.8, label="R Peak")
+
+    # Add a point at the R-peak position on the average signal
+    ax.plot(r_peak_time, avg_heartbeat[r_peak_pos], "ro", markersize=8)
+
+    # Plot average heartbeat
+    ax.plot(time_axis, avg_heartbeat, "b-", label="Average Heartbeat", linewidth=2)
+
+    # Plot positive and negative standard deviation regions
+    ax.fill_between(
+        time_axis,
+        avg_heartbeat - std_heartbeat,
+        avg_heartbeat + std_heartbeat,
+        alpha=0.3,
+        color="blue",
+        label="±1 std",
     )
-    ax.plot(
-        time_axis[normalized_heartbeat["r_peak_relative"]],
-        normalized_heartbeat["signal"][normalized_heartbeat["r_peak_relative"]],
-        "ro",
-        markersize=10,
-        label="R Peak",
+    ax.fill_between(
+        time_axis,
+        avg_heartbeat - 2 * std_heartbeat,
+        avg_heartbeat + 2 * std_heartbeat,
+        alpha=0.2,
+        color="blue",
+        label="±2 std",
     )
 
+    # Plot pairwise standard deviation
+    ax.plot(time_axis, std_heartbeat, "r-", label="Std", linewidth=2)
+
+    # Get R-peak position from first heartbeat
+    r_peak_pos = normalized_heartbeat[0]["r_peak_relative"]
+
+    # Check if R-peak position is actually the maximum value
+    max_pos = np.argmax(avg_heartbeat)
     ax.set_title(
-        f"Single Normalized Heartbeat - Lead {lead_name} (Beat #{beat_number})",
-        fontsize=12,
-        fontweight="bold",
+        f"Average Heartbeat with Variance - Lead {lead_name}\nAvg Std: {avg_std:.4f}, Std of Std: {std_std_heartbeat:.4f}, Max Std: {np.max(std_heartbeat):.4f}"
+        + f"{f"\nWarning: R-peak position (index {r_peak_pos}) is not the maximum value in averaged signal."
+             if max_pos != r_peak_pos else ""}"
     )
     ax.set_xlabel("Time (ms)")
     ax.set_ylabel("Amplitude (mV)")
@@ -268,17 +323,98 @@ def plot_single_heartbeat_normalized(
     ax.legend()
 
     # Add annotations
-    pre_r_time = normalized_heartbeat["pre_r_samples"] / sampling_rate * 1000
-    post_r_time = normalized_heartbeat["post_r_samples"] / sampling_rate * 1000
+    pre_r_time = normalized_heartbeat[0]["pre_r_samples"] / sampling_rate * 1000
+    post_r_time = normalized_heartbeat[0]["post_r_samples"] / sampling_rate * 1000
     ax.text(
         0.02,
         0.95,
-        f"Pre-R: {pre_r_time:.2f} ms | Post-R: {post_r_time:.2f} ms\nTotal Duration: {normalized_heartbeat['normalized_duration_ms']:.2f} ms",
+        f"Pre-R: {pre_r_time:.2f} ms | Post-R: {post_r_time:.2f} ms\nTotal Duration: {normalized_heartbeat[0]['normalized_duration_ms']:.2f} ms",
         transform=ax.transAxes,
         fontsize=10,
         verticalalignment="top",
         bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
     )
-
     plt.tight_layout()
+    plt.show()
+
+def plot_heartbeat_evaluation_all(r_peaks, ecg_signal, sampling_rate, lead_name):
+    """
+    Plot standard deviation comparison for all R peak detection methods
+
+    Args:
+        r_peaks: Dictionary of R peaks from different detection methods
+        ecg_signal: Original ECG signal
+        sampling_rate: Sampling rate in Hz
+        lead_name: Name of the ECG lead
+    """
+    if not r_peaks:
+        return
+
+    # Create figure for standard deviations comparison
+    fig = plt.figure(figsize=(15, 8))
+    ax = fig.add_subplot(111)
+
+    # Store statistics for all methods
+    all_stats = {}
+    min_length = float('inf')  # Track minimum heartbeat length
+
+    # First pass: find minimum heartbeat length
+    for method, peaks in r_peaks.items():
+        if len(peaks) < 3:
+            continue
+        heartbeats = extract_heartbeats(ecg_signal, peaks, sampling_rate)
+        normalized_heartbeats, _, _, _ = split_and_resample_heartbeats(
+            heartbeats, sampling_rate
+        )
+        if normalized_heartbeats:
+            min_length = min(min_length, len(normalized_heartbeats[0]["signal"]))
+
+    # Second pass: process each method with consistent length
+    for method, peaks in r_peaks.items():
+        if len(peaks) < 3:
+            continue
+
+        # Extract heartbeats
+        heartbeats = extract_heartbeats(ecg_signal, peaks, sampling_rate)
+        normalized_heartbeats, _, _, _ = split_and_resample_heartbeats(
+            heartbeats, sampling_rate
+        )
+
+        if not normalized_heartbeats:
+            continue
+
+        # Truncate all heartbeats to minimum length
+        signals = [hb["signal"][:min_length] for hb in normalized_heartbeats]
+        std_heartbeat = np.std(signals, axis=0)
+
+        # Store statistics
+        all_stats[method] = {
+            "avg_std": np.mean(std_heartbeat),
+            "std_std": np.std(std_heartbeat),
+            "max_std": np.max(std_heartbeat)
+        }
+
+    if all_stats:
+        methods = list(all_stats.keys())
+        avg_stds = [all_stats[m]["avg_std"] for m in methods]
+        std_stds = [all_stats[m]["std_std"] for m in methods]
+        max_stds = [all_stats[m]["max_std"] for m in methods]
+
+        x = np.arange(len(methods))
+        width = 0.25  # Width of the bars
+
+        # Create bars for each metric
+        bars1 = ax.bar(x - width, avg_stds, width, label='Average Std', color='skyblue')
+        bars2 = ax.bar(x, std_stds, width, label='Std of Std', color='lightgreen')
+        bars3 = ax.bar(x + width, max_stds, width, label='Max Std', color='salmon')
+
+        ax.set_title('Standard Deviation Metrics Comparison')
+        ax.set_xlabel('Detection Methods')
+        ax.set_ylabel('Standard Deviation (mV)')
+        ax.set_xticks(x)
+        ax.set_xticklabels(methods, rotation=45, ha='right')
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+
+        plt.tight_layout()
     plt.show()
