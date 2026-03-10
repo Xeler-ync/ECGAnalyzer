@@ -46,6 +46,7 @@ from utils._config import (
     SAMPLING_RATE,
     TGT_SAMPLING_RATE,
     PLOT_CONFIG,
+    ECG_INDEX,
 )
 from utils._data import X
 from utils._rr_intervals import calculate_rr_intervals, plot_rr_intervals
@@ -126,7 +127,7 @@ def plot_evaluation_comparison(baseline_evals, peak_evals):
 
 
 # Extract II lead (index 1 for II lead, 0 is I)
-lead_index = 1
+lead_index = ECG_INDEX
 ecg_signal = X[0, :, lead_index]
 
 
