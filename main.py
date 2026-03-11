@@ -382,7 +382,7 @@ print(f"{'='*80}")
 # Define which leads to process (0-11 for all 12 leads)
 # Lead indices: 0=I, 1=II, 2=III, 3=aVR, 4=aVL, 5=aVF, 6=V1, 7=V2, 8=V3, 9=V4, 10=V5, 11=V6
 lead_names = ["I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"]
-leads_to_process = [0, 6, 7, 8, 9, 10, 11]  # I, V1, V2, V3, V4, V5, V6
+leads_to_process = [i for i in range(12)]  # all
 
 # Dictionary to store results for all leads
 all_leads_data = {}
