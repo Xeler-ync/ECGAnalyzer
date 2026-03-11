@@ -127,8 +127,9 @@ def plot_evaluation_comparison(baseline_evals, peak_evals):
 
 
 # Extract II lead (index 1 for II lead, 0 is I)
-lead_index = ECG_INDEX
+lead_index = 1
 ecg_signal = X[0, :, lead_index]
+lead_names = ["I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"]
 
 
 # Perform FFT analysis before any filtering
@@ -138,7 +139,7 @@ print(f"{'='*80}")
 
 if PLOT_CONFIG["fft_and_baseline_analysis"]:
     fft_analysis, fft_detrended = plot_fft_and_baseline_analysis(
-        ecg_signal, ecg_signal, SAMPLING_RATE, lead_index + 1
+        ecg_signal, ecg_signal, SAMPLING_RATE, lead_index
     )
 
 # Baseline removal using different methods
@@ -342,7 +343,7 @@ if PLOT_CONFIG["heartbeat_evaluation_all"]:
 
 # Print comprehensive evaluation results
 print(f"\n{'='*80}")
-print(f"ECG SIGNAL PROCESSING EVALUATION RESULTS (Lead V{lead_index + 1})")
+print(f"ECG SIGNAL PROCESSING EVALUATION RESULTS (Lead {lead_names[lead_index]})")
 print(f"{'='*80}")
 
 print(f"\n--- BASELINE REMOVAL EVALUATION ---")
@@ -381,7 +382,6 @@ print(f"{'='*80}")
 
 # Define which leads to process (0-11 for all 12 leads)
 # Lead indices: 0=I, 1=II, 2=III, 3=aVR, 4=aVL, 5=aVF, 6=V1, 7=V2, 8=V3, 9=V4, 10=V5, 11=V6
-lead_names = ["I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"]
 leads_to_process = [i for i in range(12)]  # all
 
 # Dictionary to store results for all leads
