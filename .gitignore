@@ -224,3 +224,6 @@ PTB-XL
 
 # config file
 config/
+
+# result file
+results/

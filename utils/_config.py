@@ -22,6 +22,7 @@ DEFAULT_CONFIG = {
         "multiple_leads_normalized(ALL)": True,
         "original_vs_normalized_multiple_leads": True,
     },
+    "results_path": "./results/",
 }
 
 
@@ -46,3 +47,5 @@ TGT_SAMPLING_RATE = _c.get("tgt_sampling_rate", DEFAULT_CONFIG["tgt_sampling_rat
 DET = Detectors(TGT_SAMPLING_RATE)
 
 PLOT_CONFIG = _c.get("plot_config", DEFAULT_CONFIG["plot_config"])
+RESULTS_PATH = "./results/"
+os.makedirs(RESULTS_PATH, exist_ok=True)
