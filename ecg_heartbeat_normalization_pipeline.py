@@ -196,7 +196,9 @@ def plot_all_leads_normalized_heartbeats(
             ax.legend(loc="upper right", fontsize="small")
 
     # Adjust layout
-    plt.tight_layout()
+    plt.subplots_adjust(
+        left=0.052, bottom=0.052, right=0.971, top=0.914, wspace=0.22, hspace=0.488
+    )
 
     # Save the figure
     plt.savefig(
