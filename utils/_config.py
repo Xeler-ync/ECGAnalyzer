@@ -23,6 +23,7 @@ DEFAULT_CONFIG = {
         "original_vs_normalized_multiple_leads": True,
     },
     "results_path": "./results/",
+    "max_workers": 4,
 }
 
 
@@ -49,3 +50,4 @@ DET = Detectors(TGT_SAMPLING_RATE)
 PLOT_CONFIG = _c.get("plot_config", DEFAULT_CONFIG["plot_config"])
 RESULTS_PATH = "./results/"
 os.makedirs(RESULTS_PATH, exist_ok=True)
+MAX_WORKERS = _c.get("max_workers", DEFAULT_CONFIG["max_workers"])

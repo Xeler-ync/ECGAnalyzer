@@ -1,13 +1,17 @@
 import os.path
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import concurrent.futures
 from utils._baseline import remove_baseline_wander_hp_filter, evaluate_baseline_removal
 from utils._r_peaks import detect_r_peaks_neurokit_NeuroKit2, evaluate_r_peak_detection
-from utils._config import SAMPLING_RATE, RESULTS_PATH, PATH
+from utils._config import SAMPLING_RATE, RESULTS_PATH, PATH, MAX_WORKERS
 from utils._data import load_raw_data, Y
 from utils._heartbeats import extract_heartbeats, split_and_resample_heartbeats
 from utils._helpers import _round_and_clip_indices
+
+matplotlib.use("Agg")
 
 
 def process_ecg_signal(ecg_signal, lead_index, sampling_rate=SAMPLING_RATE):
@@ -137,35 +141,53 @@ def plot_all_leads_normalized_heartbeats(
     plt.close()
 
 
+def process_single_signal(signal_index):
+    """Process a single ECG signal - designed for parallel execution"""
+    X = load_raw_data(Y, SAMPLING_RATE, PATH, signal_index)
+    all_leads_normalized = {}
+
+    # Process Lead II first to get R-peaks
+    lead_II_idx = 1
+    results_II = process_ecg_signal(X[0, :, lead_II_idx], lead_II_idx)
+    all_leads_normalized[lead_II_idx] = results_II["normalized_heartbeats"]
+    r_peaks_II = results_II["r_peaks"]
+
+    # Process all other leads using Lead II R-peaks
+    for lead_idx in range(12):
+        if lead_idx == lead_II_idx:
+            continue
+        all_leads_normalized[lead_idx] = process_lead_with_r_peaks(
+            X[0, :, lead_idx], r_peaks_II, lead_idx
+        )
+
+    plot_all_leads_normalized_heartbeats(
+        all_leads_normalized, SAMPLING_RATE, signal_index
+    )
+
+    return signal_index
+
+
 def main():
-    """Main workflow: Process all signals using Lead II R-peaks for all leads"""
     print("=" * 80)
     print("ECG Signal Processing Workflow")
     print("=" * 80)
 
-    for signal_index in tqdm(
-        range(Y.patient_id.count()), desc="Processing signals", unit="signal"
-    ):
-        X = load_raw_data(Y, SAMPLING_RATE, PATH, signal_index)
-        all_leads_normalized = {}
+    max_workers = MAX_WORKERS
+    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = []
+        for signal_index in range(Y.patient_id.count()):
+            futures.append(executor.submit(process_single_signal, signal_index))
 
-        # Process Lead II first to get R-peaks
-        lead_II_idx = 1
-        results_II = process_ecg_signal(X[0, :, lead_II_idx], lead_II_idx)
-        all_leads_normalized[lead_II_idx] = results_II["normalized_heartbeats"]
-        r_peaks_II = results_II["r_peaks"]
-
-        # Process all other leads using Lead II R-peaks
-        for lead_idx in range(12):
-            if lead_idx == lead_II_idx:
-                continue
-            all_leads_normalized[lead_idx] = process_lead_with_r_peaks(
-                X[0, :, lead_idx], r_peaks_II, lead_idx
-            )
-
-        plot_all_leads_normalized_heartbeats(
-            all_leads_normalized, SAMPLING_RATE, signal_index
-        )
+        for future in tqdm(
+            concurrent.futures.as_completed(futures),
+            total=len(futures),
+            desc="Processing signals",
+            unit="signal",
+        ):
+            try:
+                result = future.result()
+            except Exception as e:
+                print(f"Error processing signal: {e}")
 
     print("=" * 80)
     print("ECG Signal Processing Workflow Completed")
