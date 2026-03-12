@@ -134,6 +134,7 @@ def plot_all_leads_normalized_heartbeats(
             RESULTS_PATH, f"{signal_index}_all_leads_normalized_heartbeats.png"
         )
     )
+    plt.close()
 
 
 def main():
