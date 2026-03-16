@@ -1,10 +1,13 @@
+import sys, os
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import numpy as np
 from wfdb import processing as wfdb_processing
 import matplotlib.pyplot as plt
 from utils._baseline import (
     remove_baseline_wander_hp_filter,
     evaluate_baseline_removal,
-    plot_baseline_removal_comparison,
 )
 from utils._r_peaks import (
     detect_r_peaks_neurokit_NeuroKit2,
@@ -24,10 +27,8 @@ from utils._heartbeats import (
     plot_heartbeats_overlay_normalized,
     plot_heartbeats_overlay_original,
     plot_average_heartbeat_with_variance,
-    plot_heartbeat_evaluation_all,
 )
 from utils._helpers import (
-    _safe_scale_and_clip,
     _round_and_clip_indices,
 )
 
@@ -117,9 +118,7 @@ if PLOT_CONFIG["heartbeats_overlay_normalized"]:
 if PLOT_CONFIG["single_heartbeat_normalized"]:
     plot_average_heartbeat_with_variance(normalized_II, SAMPLING_RATE, "II")
 
-from ecg_heartbeat_normalization_pipeline import (
-    process_ecg_signal,
-    process_lead_with_r_peaks,
+from tools.ecg_heartbeat_normalization_pipeline import (
     plot_all_leads_normalized_heartbeats,
 )
 

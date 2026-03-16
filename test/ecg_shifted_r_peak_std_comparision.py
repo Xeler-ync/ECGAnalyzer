@@ -1,3 +1,7 @@
+import sys, os
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import numpy as np
 from utils._baseline import (
     remove_baseline_wander_hp_filter,
@@ -25,7 +29,7 @@ lead_index = 1
 min_avg_std_value = 114514
 min_avg_std_index = 0
 
-for i in Y.ecg_id[:100]:
+for i in Y.index[:100]:
     ecg_signal = load_raw_data(Y, SAMPLING_RATE, PATH, i)
 
     # Baseline removal using high-pass filter
@@ -77,7 +81,7 @@ for i in Y.ecg_id[:100]:
     # Extract heartbeats using shifted R-peaks
     heartbeats_II = extract_heartbeats(filtered_hp, shifted_r_peaks, SAMPLING_RATE)
 
-    avg_std = np.mean(np.std(heartbeats_II[0]['signal'], axis=0))
+    avg_std = np.mean(np.std(heartbeats_II[0]["signal"], axis=0))
 
     if avg_std < min_avg_std_value:
         min_avg_std_value = avg_std
