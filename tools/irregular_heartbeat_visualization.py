@@ -16,8 +16,6 @@ from utils._heartbeats import extract_heartbeats, split_and_resample_heartbeats
 from utils._helpers import _round_and_clip_indices
 import json
 
-matplotlib.use("Agg")
-
 # Ensure output directory exists
 output_dir = os.path.join(os.path.dirname(RESULTS_PATH), "irregular")
 os.makedirs(output_dir, exist_ok=True)
@@ -362,6 +360,8 @@ def main():
     print("ECG Signal Processing Workflow for Irregular Heartbeats")
     print("=" * 80)
 
+    current_backend = matplotlib.get_backend()
+    matplotlib.use("Agg")
     max_workers = MAX_WORKERS
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = []
@@ -378,6 +378,7 @@ def main():
                 result = future.result()
             except Exception as e:
                 print(f"Error processing signal: {e}")
+    matplotlib.use(current_backend)
 
     print("=" * 80)
     print("ECG Signal Processing Workflow for Irregular Heartbeats Completed")
@@ -386,5 +387,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    # After running, an error occurs: "AttributeError: 'NoneType' object has no attribute 'util'".
-    # But it seems to have no effect on the output.

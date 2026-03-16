@@ -15,8 +15,6 @@ from utils._data import load_raw_data, Y
 from utils._heartbeats import extract_heartbeats, split_and_resample_heartbeats
 from utils._helpers import _round_and_clip_indices
 
-matplotlib.use("Agg")
-
 
 def process_ecg_signal(ecg_signal, lead_index, sampling_rate=SAMPLING_RATE):
     """Process single ECG lead: baseline removal -> R-peak detection -> heartbeat extraction and normalization"""
@@ -162,6 +160,8 @@ def main():
     print("ECG Signal Processing Workflow")
     print("=" * 80)
 
+    current_backend = matplotlib.get_backend()
+    matplotlib.use("Agg")
     max_workers = MAX_WORKERS
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = []
@@ -178,6 +178,7 @@ def main():
                 result = future.result()
             except Exception as e:
                 print(f"Error processing signal: {e}")
+    matplotlib.use(current_backend)
 
     print("=" * 80)
     print("ECG Signal Processing Workflow Completed")
