@@ -6,7 +6,7 @@ from tqdm import tqdm
 import concurrent.futures
 from utils._baseline import remove_baseline_wander_hp_filter, evaluate_baseline_removal
 from utils._r_peaks import detect_r_peaks_neurokit_NeuroKit2, evaluate_r_peak_detection
-from utils._config import SAMPLING_RATE, RESULTS_PATH, PATH, MAX_WORKERS
+from utils._config import SAMPLING_RATE, RESULTS_PATH, PATH, MAX_WORKERS, LEAD_NAMES
 from utils._data import load_raw_data, Y
 from utils._heartbeats import extract_heartbeats, split_and_resample_heartbeats
 from utils._helpers import _round_and_clip_indices
@@ -64,24 +64,10 @@ def plot_all_leads_normalized_heartbeats(
     all_leads_normalized, sampling_rate, signal_index, max_beats=15
 ):
     """Display normalized heartbeats for all 12 leads in a single figure"""
-    lead_names = [
-        "I",
-        "II",
-        "III",
-        "aVR",
-        "aVL",
-        "aVF",
-        "V1",
-        "V2",
-        "V3",
-        "V4",
-        "V5",
-        "V6",
-    ]
     fig, axes = plt.subplots(3, 4, figsize=(16, 12))
     axes = axes.flatten()
 
-    for lead_idx, lead_name in enumerate(lead_names):
+    for lead_idx, lead_name in enumerate(LEAD_NAMES):
         ax = axes[lead_idx]
         if lead_idx not in all_leads_normalized or not all_leads_normalized[lead_idx]:
             ax.text(

@@ -47,6 +47,7 @@ from utils._config import (
     TGT_SAMPLING_RATE,
     PLOT_CONFIG,
     ECG_INDEX,
+    LEAD_NAMES,
 )
 from utils._data import X
 from utils._rr_intervals import calculate_rr_intervals, plot_rr_intervals
@@ -129,7 +130,6 @@ def plot_evaluation_comparison(baseline_evals, peak_evals):
 # Extract II lead (index 1 for II lead, 0 is I)
 lead_index = 1
 ecg_signal = X[0, :, lead_index]
-lead_names = ["I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"]
 
 
 # Perform FFT analysis before any filtering
@@ -343,7 +343,7 @@ if PLOT_CONFIG["heartbeat_evaluation_all"]:
 
 # Print comprehensive evaluation results
 print(f"\n{'='*80}")
-print(f"ECG SIGNAL PROCESSING EVALUATION RESULTS (Lead {lead_names[lead_index]})")
+print(f"ECG SIGNAL PROCESSING EVALUATION RESULTS (Lead {LEAD_NAMES[lead_index]})")
 print(f"{'='*80}")
 
 print(f"\n--- BASELINE REMOVAL EVALUATION ---")
@@ -397,7 +397,7 @@ for lead_idx in leads_to_process:
 
 # Extract and normalize heartbeats for all leads using II's R peaks
 for lead_idx in leads_to_process:
-    lead_name = lead_names[lead_idx]
+    lead_name = LEAD_NAMES[lead_idx]
 
     # Extract heartbeats using II's detected R peaks
     heartbeats = extract_heartbeats(
@@ -426,7 +426,7 @@ if PLOT_CONFIG["multiple_leads_normalized(V1,V2,V3)"]:
     plot_multiple_leads_normalized(
         all_leads_normalized,
         [6, 7, 8],  # V1, V2, V3
-        lead_names,
+        LEAD_NAMES,
         SAMPLING_RATE,
         max_beats=15,
     )
@@ -435,7 +435,7 @@ if PLOT_CONFIG["multiple_leads_normalized(V1,V2,V3)"]:
 available_leads = [idx for idx in leads_to_process if idx in all_leads_normalized]
 if PLOT_CONFIG["multiple_leads_normalized(ALL)"]:
     plot_multiple_leads_normalized(
-        all_leads_normalized, available_leads, lead_names, SAMPLING_RATE, max_beats=10
+        all_leads_normalized, available_leads, LEAD_NAMES, SAMPLING_RATE, max_beats=10
     )
 
 
@@ -445,7 +445,7 @@ if PLOT_CONFIG["original_vs_normalized_multiple_leads"]:
         all_leads_data,
         all_leads_normalized,
         [6, 7, 8, 9],  # V1, V2, V3, V4
-        lead_names,
+        LEAD_NAMES,
         SAMPLING_RATE,
         max_beats=8,
     )

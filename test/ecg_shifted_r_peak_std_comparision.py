@@ -8,6 +8,7 @@ from utils._r_peaks import (
 from utils._config import (
     SAMPLING_RATE,
     PATH,
+    LEAD_NAMES,
 )
 from utils._data import Y, load_raw_data
 from utils._rr_intervals import calculate_rr_intervals, plot_rr_intervals
@@ -20,7 +21,6 @@ from utils._helpers import (
 
 # Extract II lead (index 1 for II lead, 0 is I)
 lead_index = 1
-lead_names = ["I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"]
 
 min_avg_std_value = 114514
 min_avg_std_index = 0

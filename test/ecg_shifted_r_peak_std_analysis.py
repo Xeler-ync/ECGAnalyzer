@@ -14,6 +14,7 @@ from utils._config import (
     SAMPLING_RATE,
     TGT_SAMPLING_RATE,
     PLOT_CONFIG,
+    LEAD_NAMES,
 )
 from utils._data import X
 from utils._rr_intervals import calculate_rr_intervals
@@ -33,7 +34,6 @@ from utils._helpers import (
 # Extract II lead (index 1 for II lead, 0 is I)
 lead_index = 1
 ecg_signal = X[0, :, lead_index]
-lead_names = ["I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"]
 
 # Baseline removal using high-pass filter
 filtered_hp = remove_baseline_wander_hp_filter(ecg_signal, SAMPLING_RATE, cutoff=0.5)
