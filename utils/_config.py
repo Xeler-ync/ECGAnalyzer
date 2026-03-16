@@ -24,6 +24,8 @@ DEFAULT_CONFIG = {
     },
     "results_path": "./results/",
     "max_workers": 4,
+    "SCP_CODES": ["LVH"],
+    "MIN_VALUES": [100],
 }
 
 LEAD_NAMES = [
@@ -65,3 +67,5 @@ PLOT_CONFIG = _c.get("plot_config", DEFAULT_CONFIG["plot_config"])
 RESULTS_PATH = "./results/"
 os.makedirs(RESULTS_PATH, exist_ok=True)
 MAX_WORKERS = _c.get("max_workers", DEFAULT_CONFIG["max_workers"])
+SCP_CODES = _c.get("SCP_CODES", DEFAULT_CONFIG["SCP_CODES"])
+MIN_VALUES = _c.get("MIN_VALUES", DEFAULT_CONFIG["MIN_VALUES"])
