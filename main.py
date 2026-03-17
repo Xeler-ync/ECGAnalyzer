@@ -14,6 +14,7 @@ from utils._r_peaks import (
     detect_r_peaks_basic,
     detect_r_peaks_adaptive,
     detect_r_peaks_derivative,
+    detect_r_peaks_envelope,
     detect_r_peaks_hamilton_ECG_Detectors,
     detect_r_peaks_christov_ECG_Detectors,
     detect_r_peaks_engelese_kulp_ECG_Detectors,
@@ -177,6 +178,7 @@ r_peaks_raw = {
     "Basic": detect_r_peaks_basic(filtered_hp, SAMPLING_RATE),
     "Adaptive": detect_r_peaks_adaptive(filtered_hp, SAMPLING_RATE),
     "Derivative": detect_r_peaks_derivative(filtered_hp, SAMPLING_RATE),
+    "Envelope": detect_r_peaks_envelope(filtered_hp, SAMPLING_RATE),
     # ecgdetectors run on resampled signal then scale back to original sampling_rate
     "Hamilton (ECG-Detectors)": detect_r_peaks_hamilton_ECG_Detectors(
         ecg_signal_resampled, TGT_SAMPLING_RATE

@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import concurrent.futures
 from utils._baseline import remove_baseline_wander_hp_filter, evaluate_baseline_removal
-from utils._r_peaks import detect_r_peaks_neurokit_NeuroKit2, evaluate_r_peak_detection
+from utils._r_peaks import detect_r_peaks_envelope, evaluate_r_peak_detection
 from utils._config import SAMPLING_RATE, RESULTS_PATH, PATH, MAX_WORKERS, LEAD_NAMES
 from utils._data import load_raw_data, Y
 from utils._heartbeats import extract_heartbeats, split_and_resample_heartbeats
@@ -25,6 +25,37 @@ with open("./data/irregular_indices.json", "r") as f:
     irregular = json.load(f)["irregular"]
 
 
+def calculate_total_std_with_r_peaks(X, r_peaks, sampling_rate=SAMPLING_RATE):
+    """
+    Calculate total standard deviation of all leads when using specific R-peak positions
+
+    Parameters:
+        X: ECG data with shape (1, samples, leads)
+        r_peaks: R-peak positions to use
+        sampling_rate: Sampling rate of the ECG
+
+    Returns:
+        total_std: Total standard deviation across all leads
+    """
+    total_std = 0.0
+    for lead_idx in range(12):
+        lead_signal = X[0, :, lead_idx]
+        filtered_signal = remove_baseline_wander_hp_filter(
+            lead_signal, sampling_rate, cutoff=0.5
+        )
+        heartbeats = extract_heartbeats(filtered_signal, r_peaks, sampling_rate)
+        normalized_heartbeats, _, _, _ = split_and_resample_heartbeats(
+            heartbeats, sampling_rate
+        )
+
+        if len(normalized_heartbeats) > 0:
+            signals = np.array([beat["signal"] for beat in normalized_heartbeats])
+            lead_std = np.mean(np.std(signals, axis=0))
+            total_std += lead_std
+
+    return total_std
+
+
 def process_ecg_signal(ecg_signal, lead_index, sampling_rate=SAMPLING_RATE):
     """Process single ECG lead: baseline removal -> R-peak detection -> heartbeat extraction and normalization"""
     filtered_signal = remove_baseline_wander_hp_filter(
@@ -34,7 +65,7 @@ def process_ecg_signal(ecg_signal, lead_index, sampling_rate=SAMPLING_RATE):
 
     # R-peak detection
     r_peaks = _round_and_clip_indices(
-        detect_r_peaks_neurokit_NeuroKit2(filtered_signal, sampling_rate),
+        detect_r_peaks_envelope(filtered_signal, sampling_rate),
         len(filtered_signal),
         filtered_signal,
         "NeuroKit2",
@@ -72,9 +103,16 @@ def process_lead_with_r_peaks(
 
 
 def plot_all_leads_normalized_heartbeats(
-    all_leads_normalized, sampling_rate, signal_index, max_beats=15
+    all_leads_normalized,
+    sampling_rate,
+    signal_index,
+    max_beats=15,
+    used_r_peak_leads=None,
 ):
     """Display normalized heartbeats for all 12 leads in a single figure"""
+    if used_r_peak_leads is None:
+        used_r_peak_leads = []
+
     fig, axes = plt.subplots(3, 4, figsize=(16, 12))
     axes = axes.flatten()
 
@@ -118,8 +156,11 @@ def plot_all_leads_normalized_heartbeats(
         )
         ax.plot(x, mean_beat, linewidth=2, color="blue", label="Average")
 
+        # Set title color to red if this lead's R-peaks were used
+        title_color = "red" if lead_idx in used_r_peak_leads else "black"
         ax.set_title(
-            f"Lead {lead_name} (n={len(normalized_heartbeats)})\nMax Std: {np.max(std_beat):.4f} | Avg Std: {np.mean(std_beat):.4f}"
+            f"Lead {lead_name} (n={len(normalized_heartbeats)})\nMax Std: {np.max(std_beat):.4f} | Avg Std: {np.mean(std_beat):.4f}",
+            color=title_color,
         )
         ax.set_xlabel("Sample Points")
         ax.set_ylabel("Amplitude (mV)")
@@ -136,14 +177,18 @@ def plot_all_leads_normalized_heartbeats(
     plt.close()
 
 
-def plot_baseline_removed_signal(X, signal_index):
+def plot_baseline_removed_signal(X, signal_index, used_r_peak_leads=None):
     """
     Plot the baseline removed ECG signal for all 12 leads with R-peak markers
 
     Parameters:
         X: Original ECG data
         signal_index: Signal index
+        used_r_peak_leads: List of lead indices whose R-peaks were used
     """
+    if used_r_peak_leads is None:
+        used_r_peak_leads = []
+
     # Create 3x4 subplot layout
     fig, axes = plt.subplots(3, 4, figsize=(16, 12))
     axes = axes.flatten()
@@ -161,7 +206,7 @@ def plot_baseline_removed_signal(X, signal_index):
         lead_II_signal, SAMPLING_RATE, cutoff=0.5
     )
     r_peaks_II = _round_and_clip_indices(
-        detect_r_peaks_neurokit_NeuroKit2(filtered_II, SAMPLING_RATE),
+        detect_r_peaks_envelope(filtered_II, SAMPLING_RATE),
         len(filtered_II),
         filtered_II,
         "NeuroKit2",
@@ -201,11 +246,15 @@ def plot_baseline_removed_signal(X, signal_index):
             label="R-peaks",
         )
 
+        # Set title color to red if this lead's R-peaks were used
+        title_color = "red" if lead_idx in used_r_peak_leads else "black"
+
         # Set title and labels
         ax.set_title(
             f"Lead {lead_name} (Index: {signal_index})",
             fontsize=12,
             fontweight="bold",
+            color=title_color,
         )
         ax.set_xlabel("Time (seconds)")
         ax.set_ylabel("Amplitude (mV)")
@@ -229,14 +278,18 @@ def plot_baseline_removed_signal(X, signal_index):
     plt.close()
 
 
-def plot_baseline_removal_overlay(X, signal_index):
+def plot_baseline_removal_overlay(X, signal_index, used_r_peak_leads=None):
     """
     Plot the overlay of original signal, estimated baseline, and baseline removal for all 12 leads
 
     Parameters:
         X: Original ECG data
         signal_index: Signal index
+        used_r_peak_leads: List of lead indices whose R-peaks were used
     """
+    if used_r_peak_leads is None:
+        used_r_peak_leads = []
+
     # Create 3x4 subplot layout
     fig, axes = plt.subplots(3, 4, figsize=(16, 12))
     axes = axes.flatten()
@@ -292,11 +345,15 @@ def plot_baseline_removal_overlay(X, signal_index):
             label="Baseline Removed",
         )
 
+        # Set title color to red if this lead's R-peaks were used
+        title_color = "red" if lead_idx in used_r_peak_leads else "black"
+
         # Set title and labels
         ax.set_title(
             f"Lead {lead_name} (Index: {signal_index})",
             fontsize=12,
             fontweight="bold",
+            color=title_color,
         )
         ax.set_xlabel("Time (seconds)")
         ax.set_ylabel("Amplitude (mV)")
@@ -326,30 +383,67 @@ def process_single_signal(signal_index):
     """Process a single ECG signal - designed for parallel execution"""
     X = load_raw_data(Y, SAMPLING_RATE, PATH, signal_index)
 
+    # Detect R-peaks for all leads
+    all_r_peaks = {}
+    for lead_idx in range(12):
+        lead_signal = X[0, :, lead_idx]
+        filtered_signal = remove_baseline_wander_hp_filter(
+            lead_signal, SAMPLING_RATE, cutoff=0.5
+        )
+        r_peaks = _round_and_clip_indices(
+            detect_r_peaks_envelope(filtered_signal, SAMPLING_RATE),
+            len(filtered_signal),
+            filtered_signal,
+            "Envelope Filter",
+        )
+        all_r_peaks[lead_idx] = r_peaks
+
+    # Find unique R-peak sets
+    unique_r_peaks_sets = []
+    for lead_idx, r_peaks in all_r_peaks.items():
+        # Convert to tuple for comparison
+        r_peaks_tuple = tuple(r_peaks)
+        # Check if this set already exists
+        is_duplicate = False
+        for existing_set in unique_r_peaks_sets:
+            if r_peaks_tuple == existing_set[0]:
+                is_duplicate = True
+                existing_set[1].append(lead_idx)
+                break
+
+        if not is_duplicate:
+            unique_r_peaks_sets.append((r_peaks_tuple, [lead_idx]))
+
+    # Calculate total standard deviation for each unique R-peak set
+    r_peaks_with_std = []
+    for r_peaks_tuple, lead_indices in unique_r_peaks_sets:
+        r_peaks = np.array(r_peaks_tuple)
+        total_std = calculate_total_std_with_r_peaks(X, r_peaks)
+        r_peaks_with_std.append((r_peaks, total_std, lead_indices))
+
+    # Select the R-peak set with minimum total standard deviation
+    best_r_peaks, min_std, used_r_peak_leads = min(r_peaks_with_std, key=lambda x: x[1])
+
     # Plot the baseline removed signal
-    plot_baseline_removed_signal(X, signal_index)
+    plot_baseline_removed_signal(X, signal_index, used_r_peak_leads=used_r_peak_leads)
 
     # Plot the baseline removal overlay
-    plot_baseline_removal_overlay(X, signal_index)
+    plot_baseline_removal_overlay(X, signal_index, used_r_peak_leads=used_r_peak_leads)
 
     all_leads_normalized = {}
 
-    # Process Lead II first to get R-peaks
-    lead_II_idx = 1
-    results_II = process_ecg_signal(X[0, :, lead_II_idx], lead_II_idx)
-    all_leads_normalized[lead_II_idx] = results_II["normalized_heartbeats"]
-    r_peaks_II = results_II["r_peaks"]
-
-    # Process all other leads using Lead II R-peaks
+    # Process all leads using the best R-peaks
     for lead_idx in range(12):
-        if lead_idx == lead_II_idx:
-            continue
         all_leads_normalized[lead_idx] = process_lead_with_r_peaks(
-            X[0, :, lead_idx], r_peaks_II, lead_idx
+            X[0, :, lead_idx], best_r_peaks, lead_idx
         )
 
+    # Pass the leads whose R-peaks were used to the plotting function
     plot_all_leads_normalized_heartbeats(
-        all_leads_normalized, SAMPLING_RATE, signal_index
+        all_leads_normalized,
+        SAMPLING_RATE,
+        signal_index,
+        used_r_peak_leads=used_r_peak_leads,
     )
 
     return signal_index

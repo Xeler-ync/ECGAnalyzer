@@ -5,13 +5,15 @@ from scipy.signal import find_peaks
 
 from utils._config import TGT_SAMPLING_RATE, DET
 
+MIN_DISTANCE_SECOND = 0.3  # 200bpm
+
 
 def detect_r_peaks_basic(ecg_signal, sampling_rate, height=None):
     """Detect R peaks using basic find_peaks method"""
     if height is None:
         height = np.max(ecg_signal) * 0.5
     peaks, properties = find_peaks(
-        ecg_signal, height=height, distance=sampling_rate * 0.4
+        ecg_signal, height=height, distance=int(sampling_rate * MIN_DISTANCE_SECOND)
     )
     return peaks
 
@@ -26,7 +28,9 @@ def detect_r_peaks_adaptive(ecg_signal, sampling_rate):
         end = min(len(ecg_signal), i + window_size // 2)
         threshold[i] = np.mean(ecg_signal[start:end]) + np.std(ecg_signal[start:end])
 
-    peaks, _ = find_peaks(ecg_signal, height=threshold, distance=sampling_rate * 0.4)
+    peaks, _ = find_peaks(
+        ecg_signal, height=threshold, distance=int(sampling_rate * MIN_DISTANCE_SECOND)
+    )
     return peaks
 
 
@@ -52,7 +56,43 @@ def detect_r_peaks_derivative(ecg_signal, sampling_rate):
     else:
         height = 0.0
 
-    peaks, _ = find_peaks(d2_abs, height=height, distance=int(sampling_rate * 0.4))
+    peaks, _ = find_peaks(
+        d2_abs, height=height, distance=int(sampling_rate * MIN_DISTANCE_SECOND)
+    )
+    return peaks
+
+
+def detect_r_peaks_envelope(signal, fs):
+    """
+    Peak detection based on Hilbert envelope, unaffected by signal polarity.
+
+    Parameters:
+        signal: Input 1D signal (band-pass filtered signal recommended)
+        fs: Sampling rate (Hz)
+
+    Returns:
+        peaks: Indices of peak positions (corresponding to heartbeat events)
+    """
+    n = len(signal)
+    # Hilbert transform (implemented via FFT)
+    fft = np.fft.fft(signal)
+    h = np.zeros(n, dtype=complex)
+    if n % 2 == 0:
+        h[0] = 1
+        h[1 : n // 2] = 2
+        h[n // 2] = 1
+    else:
+        h[0] = 1
+        h[1 : (n + 1) // 2] = 2
+    analytic = np.fft.ifft(fft * h)
+
+    envelope = np.abs(analytic)  # Envelope signal
+
+    # Detect peaks on the envelope
+    min_distance = int(MIN_DISTANCE_SECOND * fs)  # Minimum interval
+    height = 0.5 * np.max(envelope)  # Threshold
+    peaks, _ = find_peaks(envelope, distance=min_distance, height=height)
+
     return peaks
 
 
