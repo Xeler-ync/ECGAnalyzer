@@ -18,6 +18,7 @@ from utils._r_peaks import (
     detect_r_peaks_basic,
     detect_r_peaks_adaptive,
     detect_r_peaks_derivative,
+    detect_r_peaks_envelope,
     detect_r_peaks_hamilton_ECG_Detectors,
     detect_r_peaks_christov_ECG_Detectors,
     detect_r_peaks_engelese_kulp_ECG_Detectors,
@@ -60,6 +61,7 @@ def _run_all_detectors_on_signal(sig, sr):
     methods["Basic"] = detect_r_peaks_basic(sig, sr)
     methods["Adaptive"] = detect_r_peaks_adaptive(sig, sr)
     methods["Derivative"] = detect_r_peaks_derivative(sig, sr)
+    methods["Envelope"] = detect_r_peaks_envelope(sig, sr)
 
     # ecgdetectors (run on resampled then scale back)
     def _scale(pks, from_sr, to_sr, L):
