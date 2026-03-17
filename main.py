@@ -1,6 +1,7 @@
 import numpy as np
 from wfdb import processing as wfdb_processing
 import matplotlib.pyplot as plt
+
 from utils._baseline import (
     remove_baseline_wander_hp_filter,
     remove_baseline_wander_savgol,
@@ -47,7 +48,6 @@ from utils._config import (
     SAMPLING_RATE,
     TGT_SAMPLING_RATE,
     PLOT_CONFIG,
-    ECG_INDEX,
     LEAD_NAMES,
 )
 from utils._data import X
@@ -242,7 +242,9 @@ r_peaks_raw = {
     "Emrich (NeuroKit2)": detect_r_peaks_emrich2023_NeuroKit2(
         filtered_hp, SAMPLING_RATE
     ),
-    "Default (NeuroKit2)": detect_r_peaks_neurokit_NeuroKit2(filtered_hp, SAMPLING_RATE),
+    "Default (NeuroKit2)": detect_r_peaks_neurokit_NeuroKit2(
+        filtered_hp, SAMPLING_RATE
+    ),
     "Gamboa (NeuroKit2)": detect_r_peaks_gamboa2008_NeuroKit2(
         filtered_hp, SAMPLING_RATE
     ),
@@ -307,7 +309,7 @@ if len(heartbeats_II) > 0:
 
     avg_duration = np.mean([hb["duration_ms"] for hb in heartbeats_II])
     std_duration = np.std([hb["duration_ms"] for hb in heartbeats_II])
-    print(f"  Mean duration: {avg_duration:.2f} ± {std_duration:.2f} ms")
+    print(f"  Mean duration: {avg_duration:.2f} +/- {std_duration:.2f} ms")
 
 # Plot original overlaid heartbeats
 if PLOT_CONFIG["heartbeats_overlay_original"]:

@@ -4,7 +4,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 from wfdb import processing as wfdb_processing
-import matplotlib.pyplot as plt
+
 from utils._baseline import (
     remove_baseline_wander_hp_filter,
     evaluate_baseline_removal,
@@ -17,7 +17,6 @@ from utils._config import (
     SAMPLING_RATE,
     TGT_SAMPLING_RATE,
     PLOT_CONFIG,
-    LEAD_NAMES,
 )
 from utils._data import X
 from utils._rr_intervals import calculate_rr_intervals

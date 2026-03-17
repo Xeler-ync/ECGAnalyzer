@@ -12,7 +12,7 @@ def detect_r_peaks_basic(ecg_signal, sampling_rate, height=None):
     """Detect R peaks using basic find_peaks method"""
     if height is None:
         height = np.max(ecg_signal) * 0.5
-    peaks, properties = find_peaks(
+    peaks, _ = find_peaks(
         ecg_signal, height=height, distance=int(sampling_rate * MIN_DISTANCE_SECOND)
     )
     return peaks
@@ -209,7 +209,7 @@ def detect_r_peaks_engzeemod2012_NeuroKit2(ecg_signal, sampling_rate=500):
 
 
 def detect_r_peaks_elgendi2010_NeuroKit2(ecg_signal, sampling_rate=500):
-    """Elgendi (2010) frequency band‑based algorithm."""
+    """Elgendi (2010) frequency band-based algorithm."""
     cleaned = nk.ecg_clean(
         ecg_signal, sampling_rate=sampling_rate, method="elgendi2010"
     )
@@ -225,7 +225,7 @@ def detect_r_peaks_zong2003_NeuroKit2(ecg_signal, sampling_rate=500):
 
 
 def detect_r_peaks_martinez2004_NeuroKit2(ecg_signal, sampling_rate=500):
-    """Martinez (2004) wavelet‑based algorithm."""
+    """Martinez (2004) wavelet-based algorithm."""
     _, info = nk.ecg_peaks(
         ecg_signal, sampling_rate=sampling_rate, method="martinez2004"
     )
@@ -256,7 +256,7 @@ def detect_r_peaks_manikandan2012_NeuroKit2(ecg_signal, sampling_rate=500):
 
 
 def detect_r_peaks_nabian2018_NeuroKit2(ecg_signal, sampling_rate=500):
-    """Nabian (2018) modified Pan‑Tompkins algorithm."""
+    """Nabian (2018) modified Pan-Tompkins algorithm."""
     _, info = nk.ecg_peaks(ecg_signal, sampling_rate=sampling_rate, method="nabian2018")
     return np.array(info["ECG_R_Peaks"], dtype=int)
 
@@ -283,14 +283,14 @@ def detect_r_peaks_neurokit_NeuroKit2(ecg_signal, sampling_rate=500):
 
 
 def detect_r_peaks_gamboa2008_NeuroKit2(ecg_signal, sampling_rate=500):
-    """Gamboa (2008) multi‑modal biometric algorithm."""
+    """Gamboa (2008) multi-modal biometric algorithm."""
     cleaned = nk.ecg_clean(ecg_signal, sampling_rate=sampling_rate, method="gamboa2008")
     _, info = nk.ecg_peaks(cleaned, sampling_rate=sampling_rate, method="gamboa2008")
     return np.array(info["ECG_R_Peaks"], dtype=int)
 
 
 def detect_r_peaks_promac_NeuroKit2(ecg_signal, sampling_rate=500):
-    """Promac (probabilistic agreement via convolution) – combines multiple detectors."""
+    """Promac (probabilistic agreement via convolution) - combines multiple detectors."""
     _, info = nk.ecg_peaks(ecg_signal, sampling_rate=sampling_rate, method="promac")
     return np.array(info["ECG_R_Peaks"], dtype=int)
 

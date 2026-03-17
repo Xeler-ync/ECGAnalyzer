@@ -8,6 +8,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import concurrent.futures
+
 from utils._baseline import remove_baseline_wander_hp_filter, evaluate_baseline_removal
 from utils._r_peaks import detect_r_peaks_neurokit_NeuroKit2, evaluate_r_peak_detection
 from utils._config import SAMPLING_RATE, RESULTS_PATH, PATH, MAX_WORKERS, LEAD_NAMES
@@ -98,7 +99,7 @@ def plot_all_leads_normalized_heartbeats(
             mean_beat + std_beat,
             alpha=0.2,
             color="blue",
-            label="±1 SD",
+            label="+/-1 SD",
         )
         ax.fill_between(
             x,

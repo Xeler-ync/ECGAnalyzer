@@ -43,6 +43,7 @@ LEAD_NAMES = [
     "V6",
 ]
 
+
 def _load_config():
     if not os.path.exists("./config/config.json"):
         os.makedirs("./config", exist_ok=True)

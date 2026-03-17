@@ -6,6 +6,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np
 import concurrent.futures
 from tqdm import tqdm
+
 from ecg_heartbeat_normalization_pipeline import (
     process_ecg_signal,
     process_lead_with_r_peaks,

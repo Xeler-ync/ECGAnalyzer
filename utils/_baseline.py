@@ -38,7 +38,7 @@ def plot_fft_and_baseline_analysis(
     """
     Plot FFT, baseline estimation, and comparison with original signal
 
-    绘制FFT、基线估计和与原始信号的对比
+    Plot the FFT, baseline estimate, and comparison with the original signal.
     """
     fft_analysis = analyze_signal_fft(ecg_signal, sampling_rate)
 

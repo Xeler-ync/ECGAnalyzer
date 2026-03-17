@@ -5,7 +5,7 @@ def analyze_signal_fft(ecg_signal, sampling_rate):
     """
     Perform FFT analysis and estimate baseline from low-frequency components
 
-    分析信号的FFT并从低频成分估计基线
+    Analyze the FFT of the signal and estimate the baseline from the low-frequency components.
     """
     # Compute FFT
     fft_values = np.fft.fft(ecg_signal)

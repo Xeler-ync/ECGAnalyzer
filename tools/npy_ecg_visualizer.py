@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
-from glob import glob
+
 from utils._config import LEAD_NAMES, SAMPLING_RATE
 
 
@@ -33,25 +33,25 @@ def visualize_single_ecg(npy_file, save_path=None):
     # Create figure
     plt.figure(figsize=(12, 6))
 
-    # Plot each heartbeat with low opacity (使用灰色)
+    # Plot each heartbeat with low opacity (gray)
     for beat in signal:
         plt.plot(time_ms, beat, color="gray", alpha=0.2, linewidth=0.8)
 
-    # Calculate and plot average heartbeat (使用蓝色)
+    # Calculate and plot average heartbeat (blue)
     avg_beat = np.mean(signal, axis=0)
     std_beat = np.std(signal, axis=0)
 
     # Plot average heartbeat with higher opacity
     plt.plot(time_ms, avg_beat, color="blue", linewidth=2, label="Average")
 
-    # Plot standard deviation area (使用蓝色)
+    # Plot standard deviation area (blue)
     plt.fill_between(
         time_ms,
         avg_beat - std_beat,
         avg_beat + std_beat,
         color="blue",
         alpha=0.2,
-        label="±1 SD",
+        label="+/-1 SD",
     )
 
     # Add title and labels
@@ -111,18 +111,18 @@ def visualize_all_leads(ecg_id, directory, save_path=None):
         # Create time axis in milliseconds
         time_ms = np.arange(signal.shape[1]) * (1000 / SAMPLING_RATE)
 
-        # Plot each heartbeat with low opacity (使用灰色)
+        # Plot each heartbeat with low opacity (gray)
         for beat in signal:
             axes[lead_idx].plot(time_ms, beat, color="gray", alpha=0.2, linewidth=0.8)
 
-        # Calculate and plot average heartbeat (使用蓝色)
+        # Calculate and plot average heartbeat (blue)
         avg_beat = np.mean(signal, axis=0)
         std_beat = np.std(signal, axis=0)
 
         # Plot average heartbeat with higher opacity
         axes[lead_idx].plot(time_ms, avg_beat, color="blue", linewidth=2)
 
-        # Plot standard deviation area (使用蓝色)
+        # Plot standard deviation area (blue)
         axes[lead_idx].fill_between(
             time_ms, avg_beat - std_beat, avg_beat + std_beat, color="blue", alpha=0.2
         )

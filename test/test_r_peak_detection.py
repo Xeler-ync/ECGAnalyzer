@@ -1,4 +1,5 @@
 import sys, os
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
@@ -54,7 +55,11 @@ from utils._helpers import _safe_scale_and_clip
 def _run_all_detectors_on_signal(sig, sr):
     """Run all detectors defined in notebook on single-channel sig (use functions already in file)."""
     # resample for ecgdetectors if needed
-    sig_res, _ = wfdb_processing.resample_sig(sig, sr, TGT_SAMPLING_RATE) if sr != TGT_SAMPLING_RATE else (sig, sr)
+    sig_res, _ = (
+        wfdb_processing.resample_sig(sig, sr, TGT_SAMPLING_RATE)
+        if sr != TGT_SAMPLING_RATE
+        else (sig, sr)
+    )
 
     methods = {}
     # Local/simple

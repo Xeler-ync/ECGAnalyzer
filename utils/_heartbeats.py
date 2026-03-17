@@ -1,15 +1,6 @@
-from typing import Tuple, Dict
-import pandas as pd
 import numpy as np
-import wfdb
-from wfdb import processing as wfdb_processing
-import neurokit2 as nk
-import ast
 import matplotlib.pyplot as plt
 from scipy import signal as signal
-from scipy.signal import find_peaks
-from scipy.ndimage import uniform_filter1d
-from ecgdetectors import Detectors
 
 
 def extract_heartbeats(ecg_signal, r_peaks, sampling_rate):
@@ -293,7 +284,7 @@ def plot_average_heartbeat_with_variance(
         avg_heartbeat + std_heartbeat,
         alpha=0.3,
         color="blue",
-        label="±1 std",
+        label="+/-1 std",
     )
     ax.fill_between(
         time_axis,
@@ -301,7 +292,7 @@ def plot_average_heartbeat_with_variance(
         avg_heartbeat + 2 * std_heartbeat,
         alpha=0.2,
         color="blue",
-        label="±2 std",
+        label="+/-2 std",
     )
 
     # Plot pairwise standard deviation
@@ -337,6 +328,7 @@ def plot_average_heartbeat_with_variance(
     plt.tight_layout()
     plt.show()
 
+
 def plot_heartbeat_evaluation_all(r_peaks, ecg_signal, sampling_rate, lead_name):
     """
     Plot standard deviation comparison for all R peak detection methods
@@ -356,7 +348,7 @@ def plot_heartbeat_evaluation_all(r_peaks, ecg_signal, sampling_rate, lead_name)
 
     # Store statistics for all methods
     all_stats = {}
-    min_length = float('inf')  # Track minimum heartbeat length
+    min_length = float("inf")  # Track minimum heartbeat length
 
     # First pass: find minimum heartbeat length
     for method, peaks in r_peaks.items():
@@ -391,7 +383,7 @@ def plot_heartbeat_evaluation_all(r_peaks, ecg_signal, sampling_rate, lead_name)
         all_stats[method] = {
             "avg_std": np.mean(std_heartbeat),
             "std_std": np.std(std_heartbeat),
-            "max_std": np.max(std_heartbeat)
+            "max_std": np.max(std_heartbeat),
         }
 
     if all_stats:
@@ -404,15 +396,15 @@ def plot_heartbeat_evaluation_all(r_peaks, ecg_signal, sampling_rate, lead_name)
         width = 0.25  # Width of the bars
 
         # Create bars for each metric
-        bars1 = ax.bar(x - width, avg_stds, width, label='Average Std', color='skyblue')
-        bars2 = ax.bar(x, std_stds, width, label='Std of Std', color='lightgreen')
-        bars3 = ax.bar(x + width, max_stds, width, label='Max Std', color='salmon')
+        bars1 = ax.bar(x - width, avg_stds, width, label="Average Std", color="skyblue")
+        bars2 = ax.bar(x, std_stds, width, label="Std of Std", color="lightgreen")
+        bars3 = ax.bar(x + width, max_stds, width, label="Max Std", color="salmon")
 
-        ax.set_title('Standard Deviation Metrics Comparison')
-        ax.set_xlabel('Detection Methods')
-        ax.set_ylabel('Standard Deviation (mV)')
+        ax.set_title("Standard Deviation Metrics Comparison")
+        ax.set_xlabel("Detection Methods")
+        ax.set_ylabel("Standard Deviation (mV)")
         ax.set_xticks(x)
-        ax.set_xticklabels(methods, rotation=45, ha='right')
+        ax.set_xticklabels(methods, rotation=45, ha="right")
         ax.legend()
         ax.grid(True, alpha=0.3)
 

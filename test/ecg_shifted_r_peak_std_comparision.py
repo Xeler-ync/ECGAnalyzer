@@ -3,6 +3,7 @@ import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
+
 from utils._baseline import (
     remove_baseline_wander_hp_filter,
 )
@@ -12,7 +13,6 @@ from utils._r_peaks import (
 from utils._config import (
     SAMPLING_RATE,
     PATH,
-    LEAD_NAMES,
 )
 from utils._data import Y, load_raw_data
 from utils._rr_intervals import calculate_rr_intervals, plot_rr_intervals
