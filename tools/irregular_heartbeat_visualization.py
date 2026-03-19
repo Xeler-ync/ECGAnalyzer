@@ -178,7 +178,7 @@ def plot_all_leads_normalized_heartbeats(
     plt.close()
 
 
-def plot_baseline_removed_signal(X, signal_index, used_r_peak_leads=None):
+def plot_baseline_removed_signal(X, signal_index, used_r_peak_leads=None, r_peaks=None):
     """
     Plot the baseline removed ECG signal for all 12 leads with R-peak markers
 
@@ -206,7 +206,7 @@ def plot_baseline_removed_signal(X, signal_index, used_r_peak_leads=None):
     filtered_II = remove_baseline_wander_hp_filter(
         lead_II_signal, SAMPLING_RATE, cutoff=0.5
     )
-    r_peaks_II = _round_and_clip_indices(
+    r_peaks = r_peaks if r_peaks.any() else _round_and_clip_indices(
         detect_r_peaks_envelope(filtered_II, SAMPLING_RATE),
         len(filtered_II),
         filtered_II,
@@ -214,7 +214,7 @@ def plot_baseline_removed_signal(X, signal_index, used_r_peak_leads=None):
     )
 
     # Convert R-peak indices to time points
-    r_peaks_time = r_peaks_II / SAMPLING_RATE
+    r_peaks_time = r_peaks / SAMPLING_RATE
 
     # Process and plot each lead
     for lead_idx, lead_name in enumerate(LEAD_NAMES):
@@ -240,7 +240,7 @@ def plot_baseline_removed_signal(X, signal_index, used_r_peak_leads=None):
         # Add markers at R-peak positions
         ax.plot(
             r_peaks_time,
-            filtered_signal[r_peaks_II],
+            filtered_signal[r_peaks],
             "ro",
             markersize=4,
             alpha=0.7,
@@ -426,7 +426,7 @@ def process_single_signal(signal_index):
     best_r_peaks, min_std, used_r_peak_leads = min(r_peaks_with_std, key=lambda x: x[1])
 
     # Plot the baseline removed signal
-    plot_baseline_removed_signal(X, signal_index, used_r_peak_leads=used_r_peak_leads)
+    plot_baseline_removed_signal(X, signal_index, used_r_peak_leads=used_r_peak_leads, r_peaks=best_r_peaks)
 
     # Plot the baseline removal overlay
     plot_baseline_removal_overlay(X, signal_index, used_r_peak_leads=used_r_peak_leads)
