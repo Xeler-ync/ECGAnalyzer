@@ -1,3 +1,7 @@
+import sys, os
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import os
 import json
 import numpy as np
@@ -6,7 +10,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import concurrent.futures
 from utils._baseline import remove_baseline_wander_hp_filter
-from utils._r_peaks import detect_r_peaks_neurokit_NeuroKit2)
+from utils._r_peaks import detect_r_peaks_neurokit_NeuroKit2
 from utils._config import (
     SAMPLING_RATE,
     RESULTS_PATH,
