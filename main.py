@@ -140,7 +140,7 @@ print(f"{'='*80}")
 
 if PLOT_CONFIG["fft_and_baseline_analysis"]:
     fft_analysis, fft_detrended = plot_fft_and_baseline_analysis(
-        ecg_signal, ecg_signal, SAMPLING_RATE, lead_index
+        ecg_signal, ecg_signal, SAMPLING_RATE, lead_index, cutoff=0.5
     )
 
 # Baseline removal using different methods

@@ -34,7 +34,7 @@ def remove_baseline_wander_morphological(ecg_signal, kernel_size=51):
 
 
 def plot_fft_and_baseline_analysis(
-    ecg_signal, baseline_signal, sampling_rate, lead_number
+    ecg_signal, baseline_signal, sampling_rate, lead_number, cutoff
 ):
     """
     Plot FFT, baseline estimation, and comparison with original signal
@@ -70,7 +70,7 @@ def plot_fft_and_baseline_analysis(
         linewidth=1.5,
     )
     ax2.axvline(
-        x=1, color="r", linestyle="--", linewidth=2, label="Baseline cutoff (1 Hz)"
+        x=1, color="r", linestyle="--", linewidth=2, label=f"Baseline cutoff ({cutoff} Hz)"
     )
     ax2.set_xlabel("Frequency (Hz)")
     ax2.set_ylabel("Magnitude")
@@ -90,12 +90,12 @@ def plot_fft_and_baseline_analysis(
         linewidth=1.5,
     )
     ax3.axvline(
-        x=1, color="r", linestyle="--", linewidth=2, label="Baseline cutoff (1 Hz)"
+        x=1, color="r", linestyle="--", linewidth=2, label=f"Baseline cutoff ({cutoff} Hz)"
     )
 
     # Highlight different frequency bands
-    ax3.axvspan(0, 1, alpha=0.1, color="red", label="Baseline band (<1 Hz)")
-    ax3.axvspan(1, 10, alpha=0.1, color="yellow", label="ECG band (1-10 Hz)")
+    ax3.axvspan(0, cutoff, alpha=0.1, color="red", label=f"Baseline band ({cutoff} Hz)")
+    ax3.axvspan(cutoff, 10, alpha=0.1, color="yellow", label=f"ECG band ({cutoff}-10 Hz)")
     ax3.axvspan(10, 50, alpha=0.1, color="cyan", label="High-freq noise (>10 Hz)")
 
     ax3.set_xlabel("Frequency (Hz)")
