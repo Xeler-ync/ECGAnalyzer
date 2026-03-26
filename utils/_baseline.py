@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from scipy import signal
 from scipy.ndimage import uniform_filter1d
 
+from utils._config import LEAD_NAMES
 from utils._signal import analyze_signal_fft
 
 
@@ -53,7 +54,7 @@ def plot_fft_and_baseline_analysis(
     ax1 = fig.add_subplot(gs[0, :])
     ax1.plot(time_axis, ecg_signal, "b-", linewidth=1, label="Original ECG Signal")
     ax1.set_title(
-        f"Original ECG Signal (Lead V{lead_number})", fontsize=13, fontweight="bold"
+        f"Original ECG Signal (Lead {LEAD_NAMES[lead_number]})", fontsize=13, fontweight="bold"
     )
     ax1.set_ylabel("Amplitude (mV)")
     ax1.grid(True, alpha=0.3)
