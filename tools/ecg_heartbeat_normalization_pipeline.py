@@ -11,6 +11,7 @@ import concurrent.futures
 
 from utils._baseline import remove_baseline_wander_hp_filter, evaluate_baseline_removal
 from utils._r_peaks import detect_r_peaks_neurokit_NeuroKit2, evaluate_r_peak_detection
+from utils._bpm import calc_bpm_by_fft, calculate_bpm_from_r_peaks
 from utils._config import SAMPLING_RATE, RESULTS_PATH, PATH, MAX_WORKERS, LEAD_NAMES
 from utils._data import load_raw_data, Y
 from utils._heartbeats import extract_heartbeats, split_and_resample_heartbeats
@@ -64,11 +65,23 @@ def process_lead_with_r_peaks(
 
 
 def plot_all_leads_normalized_heartbeats(
-    all_leads_normalized, sampling_rate, signal_index, max_beats=15
+    all_leads_normalized,
+    sampling_rate,
+    signal_index,
+    max_beats=15,
+    bpm_from_r_peaks=None,
+    bpm_from_fft=None,
+    is_bpm_diff_significant=False,
 ):
     """Display normalized heartbeats for all 12 leads in a single figure"""
     fig, axes = plt.subplots(3, 4, figsize=(16, 12))
     axes = axes.flatten()
+
+    # Determine title color based on BPM difference
+    title_color = "red" if is_bpm_diff_significant else "black"
+
+    # Add BPM comparison text to the figure
+    bpm_text = f"BPM (R-peaks): {bpm_from_r_peaks:.1f} | BPM (FFT): {bpm_from_fft:.1f} | Difference: {abs(bpm_from_r_peaks - bpm_from_fft):.1f}"
 
     for lead_idx, lead_name in enumerate(LEAD_NAMES):
         ax = axes[lead_idx]
@@ -119,6 +132,9 @@ def plot_all_leads_normalized_heartbeats(
         if lead_idx == 0:
             ax.legend(loc="upper right", fontsize="small")
 
+    # Add BPM comparison as figure title
+    fig.suptitle(bpm_text, fontsize=14, fontweight="bold", color=title_color)
+
     plt.subplots_adjust(
         left=0.052, bottom=0.052, right=0.971, top=0.914, wspace=0.22, hspace=0.488
     )
@@ -141,6 +157,26 @@ def process_single_signal(signal_index):
     all_leads_normalized[lead_II_idx] = results_II["normalized_heartbeats"]
     r_peaks_II = results_II["r_peaks"]
 
+    # Calculate BPM from R-peaks
+    bpm_from_r_peaks = calculate_bpm_from_r_peaks(r_peaks_II)
+
+    # Calculate BPM using FFT method
+    # Prepare filtered signal for all leads
+    filtered_ecg_signal = np.zeros((X.shape[1], 12))
+    for lead_idx in range(12):
+        lead_signal = X[0, :, lead_idx]
+        filtered_signal = remove_baseline_wander_hp_filter(
+            lead_signal, SAMPLING_RATE, cutoff=0.5
+        )
+        filtered_ecg_signal[:, lead_idx] = filtered_signal
+
+    # Calculate BPM using FFT
+    bpm_from_fft = calc_bpm_by_fft(filtered_ecg_signal)
+
+    # Determine if BPM difference is significant (threshold: 0.1 * bpm_from_fft)
+    bpm_difference = abs(bpm_from_r_peaks - bpm_from_fft)
+    is_bpm_diff_significant = bpm_difference > bpm_from_fft * 0.1
+
     # Process all other leads using Lead II R-peaks
     for lead_idx in range(12):
         if lead_idx == lead_II_idx:
@@ -150,7 +186,12 @@ def process_single_signal(signal_index):
         )
 
     plot_all_leads_normalized_heartbeats(
-        all_leads_normalized, SAMPLING_RATE, signal_index
+        all_leads_normalized,
+        SAMPLING_RATE,
+        signal_index,
+        bpm_from_r_peaks=bpm_from_r_peaks,
+        bpm_from_fft=bpm_from_fft,
+        is_bpm_diff_significant=is_bpm_diff_significant,
     )
 
     return signal_index
@@ -166,7 +207,8 @@ def main():
     max_workers = MAX_WORKERS
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = []
-        for signal_index in range(Y.patient_id.count()):
+        # for signal_index in range(Y.patient_id.count()):
+        for signal_index in range(20):
             futures.append(executor.submit(process_single_signal, signal_index))
 
         for future in tqdm(

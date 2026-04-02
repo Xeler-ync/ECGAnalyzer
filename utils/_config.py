@@ -14,6 +14,7 @@ DEFAULT_CONFIG = {
         "r_peak_detection_comparison": True,
         "evaluation_comparison": True,
         "rr_intervals": True,
+        "bpm_comparision": True,
         "heartbeats_overlay_original": True,
         "heartbeats_overlay_normalized": True,
         "single_heartbeat_normalized": True,

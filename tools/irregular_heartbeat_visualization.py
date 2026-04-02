@@ -11,6 +11,11 @@ import concurrent.futures
 
 from utils._baseline import remove_baseline_wander_hp_filter, evaluate_baseline_removal
 from utils._r_peaks import detect_r_peaks_envelope, evaluate_r_peak_detection
+from utils._bpm import (
+    calc_bpm_by_fft,
+    calculate_bpm_from_r_peaks,
+    is_bpm_diff_significant,
+)
 from utils._config import SAMPLING_RATE, RESULTS_PATH, PATH, MAX_WORKERS, LEAD_NAMES
 from utils._data import load_raw_data, Y
 from utils._heartbeats import extract_heartbeats, split_and_resample_heartbeats
@@ -109,6 +114,9 @@ def plot_all_leads_normalized_heartbeats(
     signal_index,
     max_beats=15,
     used_r_peak_leads=None,
+    bpm_from_r_peaks=None,
+    bpm_from_fft=None,
+    is_bpm_diff_significant=False,
 ):
     """Display normalized heartbeats for all 12 leads in a single figure"""
     if used_r_peak_leads is None:
@@ -116,6 +124,12 @@ def plot_all_leads_normalized_heartbeats(
 
     fig, axes = plt.subplots(3, 4, figsize=(16, 12))
     axes = axes.flatten()
+
+    # Determine title color based on BPM difference
+    title_color = "red" if is_bpm_diff_significant else "black"
+
+    # Add BPM comparison text to the figure
+    bpm_text = f"BPM (R-peaks): {bpm_from_r_peaks:.1f} | BPM (FFT): {bpm_from_fft:.1f} | Difference: {abs(bpm_from_r_peaks - bpm_from_fft):.1f}"
 
     for lead_idx, lead_name in enumerate(LEAD_NAMES):
         ax = axes[lead_idx]
@@ -158,16 +172,19 @@ def plot_all_leads_normalized_heartbeats(
         ax.plot(x, mean_beat, linewidth=2, color="blue", label="Average")
 
         # Set title color to red if this lead's R-peaks were used
-        title_color = "red" if lead_idx in used_r_peak_leads else "black"
+        lead_title_color = "red" if lead_idx in used_r_peak_leads else "black"
         ax.set_title(
             f"Lead {lead_name} (n={len(normalized_heartbeats)})\nMax Std: {np.max(std_beat):.4f} | Avg Std: {np.mean(std_beat):.4f}",
-            color=title_color,
+            color=lead_title_color,
         )
         ax.set_xlabel("Sample Points")
         ax.set_ylabel("Amplitude (mV)")
         ax.grid(True, alpha=0.3)
         if lead_idx == 0:
             ax.legend(loc="upper right", fontsize="small")
+
+    # Add BPM comparison as figure title
+    fig.suptitle(bpm_text, fontsize=14, fontweight="bold", color=title_color)
 
     plt.subplots_adjust(
         left=0.052, bottom=0.052, right=0.971, top=0.914, wspace=0.22, hspace=0.488
@@ -178,14 +195,26 @@ def plot_all_leads_normalized_heartbeats(
     plt.close()
 
 
-def plot_baseline_removed_signal(X, signal_index, used_r_peak_leads=None, r_peaks=None):
+def plot_baseline_removed_signal(
+    X,
+    signal_index,
+    used_r_peak_leads=None,
+    r_peaks=None,
+    bpm_from_r_peaks=None,
+    bpm_from_fft=None,
+    is_bpm_diff_significant=False,
+):
     """
-    Plot the baseline removed ECG signal for all 12 leads with R-peak markers
+    Plot the baseline removed ECG signal for all 12 leads with R-peak markers and BPM comparison
 
     Parameters:
         X: Original ECG data
         signal_index: Signal index
         used_r_peak_leads: List of lead indices whose R-peaks were used
+        r_peaks: R-peak positions
+        bpm_from_r_peaks: BPM calculated from R-peaks
+        bpm_from_fft: BPM calculated using FFT
+        is_bpm_diff_significant: Whether the BPM difference is significant
     """
     if used_r_peak_leads is None:
         used_r_peak_leads = []
@@ -206,15 +235,25 @@ def plot_baseline_removed_signal(X, signal_index, used_r_peak_leads=None, r_peak
     filtered_II = remove_baseline_wander_hp_filter(
         lead_II_signal, SAMPLING_RATE, cutoff=0.5
     )
-    r_peaks = r_peaks if r_peaks.any() else _round_and_clip_indices(
-        detect_r_peaks_envelope(filtered_II, SAMPLING_RATE),
-        len(filtered_II),
-        filtered_II,
-        "NeuroKit2",
+    r_peaks = (
+        r_peaks
+        if r_peaks.any()
+        else _round_and_clip_indices(
+            detect_r_peaks_envelope(filtered_II, SAMPLING_RATE),
+            len(filtered_II),
+            filtered_II,
+            "NeuroKit2",
+        )
     )
 
     # Convert R-peak indices to time points
     r_peaks_time = r_peaks / SAMPLING_RATE
+
+    # Determine title color based on BPM difference
+    title_color = "red" if is_bpm_diff_significant else "black"
+
+    # Add BPM comparison text to the figure
+    bpm_text = f"BPM (R-peaks): {bpm_from_r_peaks:.1f} | BPM (FFT): {bpm_from_fft:.1f} | Difference: {abs(bpm_from_r_peaks - bpm_from_fft):.1f}"
 
     # Process and plot each lead
     for lead_idx, lead_name in enumerate(LEAD_NAMES):
@@ -248,14 +287,14 @@ def plot_baseline_removed_signal(X, signal_index, used_r_peak_leads=None, r_peak
         )
 
         # Set title color to red if this lead's R-peaks were used
-        title_color = "red" if lead_idx in used_r_peak_leads else "black"
+        lead_title_color = "red" if lead_idx in used_r_peak_leads else "black"
 
         # Set title and labels
         ax.set_title(
             f"Lead {lead_name} (Index: {signal_index})",
             fontsize=12,
             fontweight="bold",
-            color=title_color,
+            color=lead_title_color,
         )
         ax.set_xlabel("Time (seconds)")
         ax.set_ylabel("Amplitude (mV)")
@@ -268,6 +307,9 @@ def plot_baseline_removed_signal(X, signal_index, used_r_peak_leads=None, r_peak
         # Set x-axis range to show first 10 seconds or entire signal if shorter
         ax.set_xlim(0, min(10, time_axis[-1]))
 
+    # Add BPM comparison as figure title
+    fig.suptitle(bpm_text, fontsize=14, fontweight="bold", color=title_color)
+
     # Adjust subplot spacing
     plt.subplots_adjust(
         left=0.052, bottom=0.052, right=0.971, top=0.914, wspace=0.22, hspace=0.488
@@ -279,7 +321,14 @@ def plot_baseline_removed_signal(X, signal_index, used_r_peak_leads=None, r_peak
     plt.close()
 
 
-def plot_baseline_removal_overlay(X, signal_index, used_r_peak_leads=None):
+def plot_baseline_removal_overlay(
+    X,
+    signal_index,
+    used_r_peak_leads=None,
+    bpm_from_r_peaks=None,
+    bpm_from_fft=None,
+    is_bpm_diff_significant=False,
+):
     """
     Plot the overlay of original signal, estimated baseline, and baseline removal for all 12 leads
 
@@ -287,6 +336,9 @@ def plot_baseline_removal_overlay(X, signal_index, used_r_peak_leads=None):
         X: Original ECG data
         signal_index: Signal index
         used_r_peak_leads: List of lead indices whose R-peaks were used
+        bpm_from_r_peaks: BPM calculated from R-peaks
+        bpm_from_fft: BPM calculated using FFT
+        is_bpm_diff_significant: Whether the BPM difference is significant
     """
     if used_r_peak_leads is None:
         used_r_peak_leads = []
@@ -300,6 +352,12 @@ def plot_baseline_removal_overlay(X, signal_index, used_r_peak_leads=None):
 
     # Create time axis
     time_axis = np.arange(len(signal)) / SAMPLING_RATE
+
+    # Determine title color based on BPM difference
+    title_color = "red" if is_bpm_diff_significant else "black"
+
+    # Add BPM comparison text to the figure
+    bpm_text = f"BPM (R-peaks): {bpm_from_r_peaks:.1f} | BPM (FFT): {bpm_from_fft:.1f} | Difference: {abs(bpm_from_r_peaks - bpm_from_fft):.1f}"
 
     # Process and plot each lead
     for lead_idx, lead_name in enumerate(LEAD_NAMES):
@@ -347,14 +405,14 @@ def plot_baseline_removal_overlay(X, signal_index, used_r_peak_leads=None):
         )
 
         # Set title color to red if this lead's R-peaks were used
-        title_color = "red" if lead_idx in used_r_peak_leads else "black"
+        lead_title_color = "red" if lead_idx in used_r_peak_leads else "black"
 
         # Set title and labels
         ax.set_title(
             f"Lead {lead_name} (Index: {signal_index})",
             fontsize=12,
             fontweight="bold",
-            color=title_color,
+            color=lead_title_color,
         )
         ax.set_xlabel("Time (seconds)")
         ax.set_ylabel("Amplitude (mV)")
@@ -366,6 +424,9 @@ def plot_baseline_removal_overlay(X, signal_index, used_r_peak_leads=None):
 
         # Set x-axis range to show first 10 seconds or entire signal if shorter
         ax.set_xlim(0, min(10, time_axis[-1]))
+
+    # Add BPM comparison as figure title
+    fig.suptitle(bpm_text, fontsize=14, fontweight="bold", color=title_color)
 
     # Adjust subplot spacing
     plt.subplots_adjust(
@@ -386,6 +447,7 @@ def process_single_signal(signal_index):
 
     # Detect R-peaks for all leads
     all_r_peaks = {}
+    filtered_ecg_signal = np.zeros((X.shape[1], 12))
     for lead_idx in range(12):
         lead_signal = X[0, :, lead_idx]
         filtered_signal = remove_baseline_wander_hp_filter(
@@ -397,6 +459,7 @@ def process_single_signal(signal_index):
             filtered_signal,
             "Envelope Filter",
         )
+        filtered_ecg_signal[:, lead_idx] = filtered_signal
         all_r_peaks[lead_idx] = r_peaks
 
     # Find unique R-peak sets
@@ -425,11 +488,40 @@ def process_single_signal(signal_index):
     # Select the R-peak set with minimum total standard deviation
     best_r_peaks, min_std, used_r_peak_leads = min(r_peaks_with_std, key=lambda x: x[1])
 
+    # Calculate BPM from R-peaks
+    bpm_from_r_peaks = calculate_bpm_from_r_peaks(best_r_peaks)
+
+    # Calculate BPM using FFT
+    bpm_from_fft = calc_bpm_by_fft(filtered_ecg_signal)
+
+    # Determine if BPM difference is significant
+    ibds = is_bpm_diff_significant(
+        best_r_peaks,
+        bpm_from_fft,
+        adaptive_threshold=True,
+        interval=len(filtered_ecg_signal) / SAMPLING_RATE,
+    )
+
     # Plot the baseline removed signal
-    plot_baseline_removed_signal(X, signal_index, used_r_peak_leads=used_r_peak_leads, r_peaks=best_r_peaks)
+    plot_baseline_removed_signal(
+        X,
+        signal_index,
+        used_r_peak_leads=used_r_peak_leads,
+        r_peaks=best_r_peaks,
+        bpm_from_r_peaks=bpm_from_r_peaks,
+        bpm_from_fft=bpm_from_fft,
+        is_bpm_diff_significant=ibds,
+    )
 
     # Plot the baseline removal overlay
-    plot_baseline_removal_overlay(X, signal_index, used_r_peak_leads=used_r_peak_leads)
+    plot_baseline_removal_overlay(
+        X,
+        signal_index,
+        used_r_peak_leads=used_r_peak_leads,
+        bpm_from_r_peaks=bpm_from_r_peaks,
+        bpm_from_fft=bpm_from_fft,
+        is_bpm_diff_significant=ibds,
+    )
 
     all_leads_normalized = {}
 
@@ -445,6 +537,9 @@ def process_single_signal(signal_index):
         SAMPLING_RATE,
         signal_index,
         used_r_peak_leads=used_r_peak_leads,
+        bpm_from_r_peaks=bpm_from_r_peaks,
+        bpm_from_fft=bpm_from_fft,
+        is_bpm_diff_significant=ibds,
     )
 
     return signal_index

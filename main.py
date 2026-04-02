@@ -50,6 +50,7 @@ from utils._config import (
     PLOT_CONFIG,
     LEAD_NAMES,
 )
+from utils._bpm import calc_bpm_by_fft
 from utils._data import X
 from utils._rr_intervals import calculate_rr_intervals, plot_rr_intervals
 from utils._heartbeats import (
@@ -293,6 +294,60 @@ selected_r_peaks = r_peaks["Default (NeuroKit2)"]
 rr_analysis = calculate_rr_intervals(selected_r_peaks, SAMPLING_RATE)
 if PLOT_CONFIG["rr_intervals"]:
     plot_rr_intervals(selected_r_peaks, SAMPLING_RATE)
+
+# Calculate BPM from RR intervals (R-peak based method)
+r_peak_based_bpm = rr_analysis["heart_rate_bpm"]
+
+# Calculate BPM using FFT method
+fft_based_bpm = calc_bpm_by_fft(filtered_hp, -1)
+
+# Compare BPM from R-peaks and FFT method
+print(f"\n{'='*80}")
+print(f"BPM COMPARISON (R-PEAKS vs FFT)")
+print(f"{'='*80}")
+print(f"R-peak based BPM: {r_peak_based_bpm:.2f} BPM")
+print(f"FFT based BPM:    {fft_based_bpm:.2f} BPM")
+print(f"Difference:       {abs(r_peak_based_bpm - fft_based_bpm):.2f} BPM")
+print(f"{'='*80}\n")
+
+# Plot BPM comparison
+if PLOT_CONFIG["bpm_comparision"]:
+    fig, ax = plt.subplots(figsize=(10, 6))
+    methods = ["R-peak based", "FFT based"]
+    bpms = [r_peak_based_bpm, fft_based_bpm]
+    colors = ["skyblue", "lightgreen"]
+
+    bars = ax.bar(methods, bpms, color=colors)
+    ax.set_ylabel("BPM", fontsize=12)
+    ax.set_title(
+        "BPM Comparison: R-peak based vs FFT based", fontsize=14, fontweight="bold"
+    )
+    ax.set_ylim([min(bpms) * 0.9, max(bpms) * 1.1])
+
+    # Add value labels on top of bars
+    for bar, bpm in zip(bars, bpms):
+        height = bar.get_height()
+        ax.text(
+            bar.get_x() + bar.get_width() / 2.0,
+            height,
+            f"{bpm:.2f} BPM",
+            ha="center",
+            va="bottom",
+            fontsize=12,
+        )
+
+    # Add difference annotation
+    ax.text(
+        0.5,
+        min(bpms) * 0.95,
+        f"Difference: {abs(r_peak_based_bpm - fft_based_bpm):.2f} BPM",
+        ha="center",
+        fontsize=12,
+        bbox=dict(facecolor="white", alpha=0.8),
+    )
+
+    plt.tight_layout()
+    plt.show()
 
 # Extract heartbeats from the single patient
 heartbeats_II = extract_heartbeats(filtered_hp, selected_r_peaks, SAMPLING_RATE)

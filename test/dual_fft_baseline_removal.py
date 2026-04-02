@@ -9,6 +9,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import concurrent.futures
+from scipy.signal import find_peaks
+
 from utils._baseline import remove_baseline_wander_hp_filter
 from utils._r_peaks import detect_r_peaks_neurokit_NeuroKit2
 from utils._config import (
@@ -80,8 +82,9 @@ def plot_baseline_removed_signal(X, signal_index, leads_to_plot=None, auto_layou
     # Process Lead II to get R-peak positions
     lead_II_idx = 1
     lead_II_signal = ecg_signal[:, lead_II_idx]
+    cutoff = 0.5
     filtered_II = remove_baseline_wander_hp_filter(
-        lead_II_signal, SAMPLING_RATE, cutoff=0.5
+        lead_II_signal, SAMPLING_RATE, cutoff=cutoff
     )
     r_peaks_II = _round_and_clip_indices(
         detect_r_peaks_neurokit_NeuroKit2(filtered_II, SAMPLING_RATE),
@@ -117,7 +120,7 @@ def plot_baseline_removed_signal(X, signal_index, leads_to_plot=None, auto_layou
         # ============ Plot 1: Time Domain (Baseline Removed) ============
         # Process lead to get baseline removed signal
         filtered_signal = remove_baseline_wander_hp_filter(
-            original_signal, SAMPLING_RATE, cutoff=0.5
+            original_signal, SAMPLING_RATE, cutoff=cutoff
         )
 
         # Extract baseline (original - filtered)
@@ -248,6 +251,16 @@ def plot_baseline_removed_signal(X, signal_index, leads_to_plot=None, auto_layou
             "ro",
             markersize=8,
             label="Max Filtered",
+        )
+
+        # Add markers at R-peak frequencies
+        peaks, _ = find_peaks(fft_magnitude, distance=10 * SAMPLING_RATE / 100)
+        ax_freq.plot(
+            fft_freq[peaks],
+            fft_magnitude[peaks],
+            "go",
+            markersize=8,
+            label="Peaks",
         )
 
         # Set title and labels for frequency domain
