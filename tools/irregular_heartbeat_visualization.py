@@ -168,6 +168,7 @@ def plot_all_leads_normalized_heartbeats(
             mean_beat + 2 * std_beat,
             alpha=0.2,
             color="blue",
+            label="+/-2 SD",
         )
         ax.plot(x, mean_beat, linewidth=2, color="blue", label="Average")
 
