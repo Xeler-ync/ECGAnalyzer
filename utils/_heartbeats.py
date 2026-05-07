@@ -58,11 +58,10 @@ def extract_heartbeats(ecg_signal, r_peaks, sampling_rate):
 
 def split_and_resample_heartbeats(heartbeats, sampling_rate):
     """
-    Normalize heartbeats by aligning to R without using fixed pre/post durations.
+    Normalize heartbeats by aligning to R using scaling (resampling).
 
-    - Remove fixed pre_r_duration_ms and post_r_duration_ms inputs.
     - Determine target pre/post lengths from the minimum available samples across all beats.
-    - Align by truncation/padding (no interpolation) to preserve original sampling.
+    - Resample each beat's pre-R and post-R segments to these target lengths using linear interpolation.
     """
     normalized_heartbeats = []
 
@@ -75,57 +74,52 @@ def split_and_resample_heartbeats(heartbeats, sampling_rate):
     for hb in heartbeats:
         rpos = hb["r_peak_relative"]
         sig_len = len(hb["signal"])
-        pre_len = max(1, rpos + 1)
-        post_len = max(1, sig_len - rpos)
+        pre_len = rpos + 1               # samples from start to R inclusive
+        post_len = sig_len - rpos        # samples from R to end inclusive
         pre_lengths.append(pre_len)
         post_lengths.append(post_len)
 
-    # choose minimal observed lengths
+    # Target lengths: smallest observed (no upsampling, only downsampling)
     target_pre = max(1, int(min(pre_lengths)))
     target_post = max(1, int(min(post_lengths)))
     total_samples = target_pre + target_post
+
+    def resample_segment(seg, target_len):
+        """Resample a 1D signal to target_len using linear interpolation."""
+        if len(seg) == target_len:
+            return seg
+        x_old = np.linspace(0, 1, len(seg))
+        x_new = np.linspace(0, 1, target_len)
+        return np.interp(x_new, x_old, seg)
 
     for hb in heartbeats:
         sig = hb["signal"]
         rpos = hb["r_peak_relative"]
 
-        # Pre: right-align to R (take last target_pre samples ending at rpos)
-        start_pre = max(0, rpos + 1 - target_pre)
-        pre_seg = sig[start_pre : rpos + 1]
+        # Extract full pre-R segment (including R) and post-R segment (including R)
+        pre_seg = sig[:rpos + 1]          # length = rpos+1
+        post_seg = sig[rpos:]             # length = len(sig)-rpos
 
-        # Post: left-align at R (take first target_post samples starting at rpos)
-        end_post = min(len(sig), rpos + target_post)
-        post_seg = sig[rpos:end_post]
+        # Resample to target lengths
+        resampled_pre = resample_segment(pre_seg, target_pre)
+        resampled_post = resample_segment(post_seg, target_post)
 
-        # Pad with edge values if shorter than target
-        if len(pre_seg) < target_pre:
-            pad_val = pre_seg[0] if len(pre_seg) > 0 else 0.0
-            pre_seg = np.concatenate(
-                [np.full(target_pre - len(pre_seg), pad_val), pre_seg]
-            )
-        if len(post_seg) < target_post:
-            pad_val = post_seg[-1] if len(post_seg) > 0 else 0.0
-            post_seg = np.concatenate(
-                [post_seg, np.full(target_post - len(post_seg), pad_val)]
-            )
-
-        # Combine without duplicating the R sample (R at index target_pre-1)
-        if len(pre_seg) > 1:
-            normalized = np.concatenate([pre_seg[:-1], post_seg])
+        # Combine: avoid duplicate R sample (R is the last of pre, first of post)
+        if target_pre > 1:
+            normalized = np.concatenate([resampled_pre[:-1], resampled_post])
         else:
-            normalized = np.concatenate([pre_seg, post_seg])
+            # If target_pre == 1, pre_seg is just the R sample; use it as is
+            normalized = np.concatenate([resampled_pre, resampled_post])
 
-        normalized_heartbeats.append(
-            {
-                "signal": normalized,
-                "original_duration_ms": hb["duration_ms"],
-                "normalized_duration_ms": (total_samples / sampling_rate) * 1000,
-                "r_peak_relative": target_pre - 1,
-                "pre_r_samples": target_pre,
-                "post_r_samples": target_post,
-                "original_r_peak_index": hb["r_peak_index"],
-            }
-        )
+        normalized_heartbeats.append({
+            "signal": normalized,
+            "original_duration_ms": hb["duration_ms"],
+            "normalized_duration_ms": (total_samples / sampling_rate) * 1000,
+            "r_peak_relative": target_pre - 1,   # R peak position after resampling
+            "pre_r_samples": target_pre,
+            "post_r_samples": target_post,
+            "original_r_peak_index": hb["r_peak_index"],
+        })
 
     return normalized_heartbeats, target_pre, target_post, total_samples
 
