@@ -164,7 +164,7 @@ def plot_fft_and_baseline_analysis(
     ax5.set_xlim(0, min(10, time_axis[-1]))
 
     plt.suptitle(
-        f"FFT-based Baseline Estimation and Analysis (Lead V{lead_number})",
+        f"FFT-based Baseline Estimation and Analysis (Lead {LEAD_NAMES[lead_number]})",
         fontsize=15,
         fontweight="bold",
         y=0.995,
@@ -175,7 +175,7 @@ def plot_fft_and_baseline_analysis(
 
     # Print FFT analysis results
     print(f"\n{'='*70}")
-    print(f"FFT ANALYSIS RESULTS (Lead V{lead_number})")
+    print(f"FFT ANALYSIS RESULTS (Lead {LEAD_NAMES[lead_number]})")
     print(f"{'='*70}")
     print(f"Signal duration: {time_axis[-1]:.2f} seconds")
     print(f"Signal length: {len(ecg_signal)} samples")
@@ -247,7 +247,7 @@ def plot_baseline_removal_comparison(
 
     axes[0].plot(time_axis, original_signal, "b-", linewidth=1)
     axes[0].set_title(
-        f"Original ECG Signal (Lead V{lead_number})", fontsize=12, fontweight="bold"
+        f"Original ECG Signal (Lead {LEAD_NAMES[lead_number]})", fontsize=12, fontweight="bold"
     )
     axes[0].set_ylabel("Amplitude (mV)")
     axes[0].grid(True, alpha=0.3)
