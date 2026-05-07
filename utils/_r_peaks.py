@@ -342,22 +342,22 @@ def plot_r_peak_detection_comparison(
     r_peaks_dict,
     sampling_rate,
     lead_number,
+    col = 4,
 ):
     """Plot R peak detection comparison"""
     time_axis = np.arange(len(filtered_signal)) / sampling_rate
     methods = list(r_peaks_dict.keys())
     n_methods = len(methods)
-    COL = 4
 
     # Create subplots
     fig, axes = plt.subplots(
-        ((n_methods + COL - 1) // COL),
-        COL,
-        figsize=(48, 6 * (n_methods + COL - 1) // COL),
+        ((n_methods + col - 1) // col),
+        col,
+        figsize=(48, 6 * (n_methods + col - 1) // col),
     )
 
     for idx, (method, peaks) in enumerate(r_peaks_dict.items()):
-        ax = axes[idx // COL, idx % COL] if n_methods > 1 else axes
+        ax = axes[idx // col, idx % col] if n_methods > 1 else axes
 
         # Plot ECG signal
         ax.plot(
@@ -365,7 +365,7 @@ def plot_r_peak_detection_comparison(
             filtered_signal,
             "b-",
             linewidth=1,
-            # label="ECG Signal",
+            # label="ECG Signal",f
         )
 
         # Plot R peaks
