@@ -40,7 +40,6 @@ from utils._r_peaks import (
     detect_r_peaks_neurokit_NeuroKit2,
     detect_r_peaks_gamboa2008_NeuroKit2,
     detect_r_peaks_promac_NeuroKit2,
-    detect_r_peaks_asi_NeuroKit2,
     evaluate_r_peak_detection,
     plot_r_peak_detection_comparison,
 )
@@ -250,7 +249,6 @@ r_peaks_raw = {
         filtered_hp, SAMPLING_RATE
     ),
     "Promac (NeuroKit2)": detect_r_peaks_promac_NeuroKit2(filtered_hp, SAMPLING_RATE),
-    "ASI (NeuroKit2)": detect_r_peaks_asi_NeuroKit2(filtered_hp, SAMPLING_RATE),
 }
 
 # sanitize and, where needed, scale ecgdetectors outputs back to original signal length
