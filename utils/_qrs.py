@@ -8,8 +8,7 @@ def highpass_filter(signal, fs=100, cutoff=0.5, order=1):
     nyq = 0.5 * fs
     normal_cutoff = cutoff / nyq
     b, a = butter(order, normal_cutoff, btype='high', analog=False)
-    filtered = filtfilt(b, a, signal)
-    return filtered
+    return filtfilt(b, a, signal)
 
 def detect_r_peaks(ecg, fs=100):
     # Simple preprocessing: de-mean + absolute value
@@ -79,28 +78,23 @@ def detect_pqrst(beat):
     return P, Q, R, S, T
 
 def extract_features_from_beat(beat, P, Q, R, S, T):
-    features = {}
-
-    # ---Time interval---
-    features["PR_interval"] = Q - P
-    features["QRS_width"] = S - Q
-    features["QT_interval"] = T - Q
-
-    # --- amplitude ---
-    features["P_amp"] = beat[P]
-    features["Q_amp"] = beat[Q]
-    features["R_amp"] = beat[R]
-    features["S_amp"] = beat[S]
-    features["T_amp"] = beat[T]
-
-    # --- Slope  ---
-    features["QRS_rise"] = beat[R] - beat[Q]
-    features["QRS_fall"] = beat[R] - beat[S]
-
-    # --- Waveform energy ---
-    features["QRS_energy"] = np.sum(beat[Q:S] ** 2)
-
-    return features
+    return {
+        # ---Time interval---
+        "PR_interval": Q - P,
+        "QRS_width": S - Q,
+        "QT_interval": T - Q,
+        # --- amplitude ---
+        "P_amp": beat[P],
+        "Q_amp": beat[Q],
+        "R_amp": beat[R],
+        "S_amp": beat[S],
+        "T_amp": beat[T],
+        # --- Slope  ---
+        "QRS_rise": beat[R] - beat[Q],
+        "QRS_fall": beat[R] - beat[S],
+        # --- Waveform energy ---
+        "QRS_energy": np.sum(beat[Q:S] ** 2),
+    }
 
 # Read the PTB-XL database index
 df = pd.read_csv("PTB-XL/ptbxl_database.csv")
@@ -133,7 +127,7 @@ r_peaks = detect_r_peaks(ecg, fs=fs)
 # Segmentation of heartbeats
 beats = split_into_beats(ecg, r_peaks, beat_length=256)
 
-print("总心跳数:", len(beats))
+print("Total number of detected heartbeats:", len(beats))
 
 # Select the first heartbeat
 beat = beats[0]
@@ -141,12 +135,9 @@ beat = beats[0]
 # Detect P/Q/R/S/T
 P, Q, R, S, T = detect_pqrst(beat)
 
-X = []
-y = []
 feat = extract_features_from_beat(beat, P, Q, R, S, T)
-X.append(list(feat.values()))
-y.append(row['diagnostic_superclass'])
-
+X = [list(feat.values())]
+y = [row['diagnostic_superclass']]
 # Figure
 plt.figure(figsize=(12,4))
 plt.plot(beat, label='ECG Beat', linewidth=2)

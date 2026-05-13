@@ -165,12 +165,12 @@ def interactive_input():
 
     # Ask if user wants to visualize all leads
     all_leads_input = input("Visualize all 12 leads? (y/n): ").strip().lower()
-    all_leads = all_leads_input == "y" or all_leads_input == "yes"
+    all_leads = all_leads_input in ["y", "yes"]
 
     # Ask if user wants to save the visualization
     save_input = input("Save the visualization? (y/n): ").strip().lower()
     save_path = None
-    if save_input == "y" or save_input == "yes":
+    if save_input in ["y", "yes"]:
         save_path = input("Enter the path to save the visualization: ").strip()
 
     # Extract ECG ID and directory from the file path

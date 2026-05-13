@@ -51,11 +51,7 @@ def detect_r_peaks_derivative(ecg_signal, sampling_rate):
     d2_abs = np.abs(d2)
 
     # threshold and minimum distance (keep similar spacing constraint)
-    if np.max(d2_abs) > 0:
-        height = np.max(d2_abs) * 0.5
-    else:
-        height = 0.0
-
+    height = np.max(d2_abs) * 0.5 if np.max(d2_abs) > 0 else 0.0
     peaks, _ = find_peaks(
         d2_abs, height=height, distance=int(sampling_rate * MIN_DISTANCE_SECOND)
     )
@@ -77,12 +73,11 @@ def detect_r_peaks_envelope(signal, fs):
     # Hilbert transform (implemented via FFT)
     fft = np.fft.fft(signal)
     h = np.zeros(n, dtype=complex)
+    h[0] = 1
     if n % 2 == 0:
-        h[0] = 1
         h[1 : n // 2] = 2
         h[n // 2] = 1
     else:
-        h[0] = 1
         h[1 : (n + 1) // 2] = 2
     analytic = np.fft.ifft(fft * h)
 

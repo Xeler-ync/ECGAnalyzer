@@ -1,5 +1,10 @@
+import sys, os
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import argparse
 import ast
+import contextlib
 import json
 import sys
 from pathlib import Path
@@ -8,16 +13,13 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-REPO_ROOT = Path(__file__).resolve().parent
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 from utils._config import PATH
 from utils._data import Y
 
 TARGET_THRESHOLD = 100
 DEFAULT_OUT_DIR = Path("results/label_audit")
 SUPERCLASS_ORDER = ["NORM", "HYP", "MI", "CD", "STTC"]
+REPO_ROOT = Path(__file__).resolve().parent
 
 
 def ensure_dict(x: Any) -> dict:
@@ -26,28 +28,22 @@ def ensure_dict(x: Any) -> dict:
     if pd.isna(x):
         return {}
     if isinstance(x, str):
-        try:
+        with contextlib.suppress(Exception):
             parsed = ast.literal_eval(x)
             if isinstance(parsed, dict):
                 return parsed
-        except Exception:
-            pass
-        try:
+        with contextlib.suppress(Exception):
             parsed = json.loads(x)
             if isinstance(parsed, dict):
                 return parsed
-        except Exception:
-            pass
     return {}
-
 
 
 def is_pure_norm(scp_codes: dict, threshold: int = TARGET_THRESHOLD) -> bool:
     if scp_codes.get("NORM", 0) < threshold:
         return False
     others = [k for k, v in scp_codes.items() if k != "NORM" and v >= threshold]
-    return len(others) == 0
-
+    return not others
 
 
 def find_scp_statements_file() -> Path | None:
@@ -57,10 +53,7 @@ def find_scp_statements_file() -> Path | None:
         REPO_ROOT / "scp_statements.csv",
         REPO_ROOT / "data" / "scp_statements.csv",
     ]
-    for c in candidates:
-        if c.exists():
-            return c
-    return None
+    return next((c for c in candidates if c.exists()), None)
 
 
 
@@ -73,13 +66,17 @@ def load_scp_statements() -> pd.DataFrame | None:
     return df
 
 
-
 def build_superclass_lookup(scp_df: pd.DataFrame | None) -> dict[str, str]:
     lookup: dict[str, str] = {}
     if scp_df is None:
         return lookup
 
-    candidate_cols = ["diagnostic_class", "diagnostic superclass", "diagnostic_superclass", "diagnostic"]
+    candidate_cols = [
+        "diagnostic_class",
+        "diagnostic superclass",
+        "diagnostic_superclass",
+        "diagnostic",
+    ]
     super_col = None
     for col in candidate_cols:
         if col in scp_df.columns:
@@ -95,21 +92,24 @@ def build_superclass_lookup(scp_df: pd.DataFrame | None) -> dict[str, str]:
     return lookup
 
 
-
-def map_superclasses(scp_codes: dict, superclass_lookup: dict[str, str], threshold: int = TARGET_THRESHOLD) -> list[str]:
+def map_superclasses(
+    scp_codes: dict,
+    superclass_lookup: dict[str, str],
+    threshold: int = TARGET_THRESHOLD,
+) -> list[str]:
     out = set()
     for code, score in scp_codes.items():
         if score >= threshold:
-            sc = superclass_lookup.get(code)
-            if sc:
+            if sc := superclass_lookup.get(code):
                 out.add(sc)
     if scp_codes.get("NORM", 0) >= threshold:
         out.add("NORM")
     return sorted(out)
 
 
-
-def build_label_audit(threshold: int = TARGET_THRESHOLD) -> tuple[pd.DataFrame, pd.DataFrame]:
+def build_label_audit(
+    threshold: int = TARGET_THRESHOLD,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     scp_df = load_scp_statements()
     superclass_lookup = build_superclass_lookup(scp_df)
 
@@ -117,7 +117,9 @@ def build_label_audit(threshold: int = TARGET_THRESHOLD) -> tuple[pd.DataFrame, 
     for idx in range(len(Y)):
         record = Y.iloc[idx]
         scp_codes = ensure_dict(record["scp_codes"])
-        superclasses = map_superclasses(scp_codes, superclass_lookup, threshold=threshold)
+        superclasses = map_superclasses(
+            scp_codes, superclass_lookup, threshold=threshold
+        )
         is_norm = int(scp_codes.get("NORM", 0) >= threshold)
         pure_norm = int(is_pure_norm(scp_codes, threshold=threshold))
         is_lvh = int(scp_codes.get("LVH", 0) >= threshold)
@@ -132,7 +134,9 @@ def build_label_audit(threshold: int = TARGET_THRESHOLD) -> tuple[pd.DataFrame, 
             "is_norm": is_norm,
             "is_pure_norm": pure_norm,
             "keep_for_binary_lvh_norm": int(is_lvh == 1 or pure_norm == 1),
-            "lvh_vs_norm_label": (1 if is_lvh == 1 else 0) if (is_lvh == 1 or pure_norm == 1) else np.nan,
+            "lvh_vs_norm_label": (
+                (1 if is_lvh == 1 else 0) if (is_lvh == 1 or pure_norm == 1) else np.nan
+            ),
             "n_positive_scp_codes": n_codes,
             "diagnostic_superclasses": ";".join(superclasses),
             "n_superclasses": len(superclasses),
@@ -152,19 +156,34 @@ def build_label_audit(threshold: int = TARGET_THRESHOLD) -> tuple[pd.DataFrame, 
 
     audit_df = pd.DataFrame(rows)
 
-    summary_rows = []
-    summary_rows.append({"metric": "total_records", "value": int(len(audit_df))})
-    summary_rows.append({"metric": "binary_keep_lvh_or_pure_norm", "value": int(audit_df["keep_for_binary_lvh_norm"].sum())})
-    summary_rows.append({"metric": "lvh_records", "value": int(audit_df["is_lvh"].sum())})
-    summary_rows.append({"metric": "pure_norm_records", "value": int(audit_df["is_pure_norm"].sum())})
-    for sc in SUPERCLASS_ORDER:
-        summary_rows.append({"metric": f"records_with_{sc}", "value": int(audit_df[f"superclass_{sc.lower()}"] .sum())})
-    for label_name, count in audit_df["primary_superclass"].value_counts(dropna=False).items():
-        summary_rows.append({"metric": f"primary_superclass::{label_name}", "value": int(count)})
-
+    summary_rows = [
+        {"metric": "total_records", "value": len(audit_df)},
+        {
+            "metric": "binary_keep_lvh_or_pure_norm",
+            "value": int(audit_df["keep_for_binary_lvh_norm"].sum()),
+        },
+    ]
+    summary_rows.append(
+        {"metric": "lvh_records", "value": int(audit_df["is_lvh"].sum())}
+    )
+    summary_rows.append(
+        {"metric": "pure_norm_records", "value": int(audit_df["is_pure_norm"].sum())}
+    )
+    summary_rows.extend(
+        {
+            "metric": f"records_with_{sc}",
+            "value": int(audit_df[f"superclass_{sc.lower()}"].sum()),
+        }
+        for sc in SUPERCLASS_ORDER
+    )
+    summary_rows.extend(
+        {"metric": f"primary_superclass::{label_name}", "value": int(count)}
+        for label_name, count in audit_df["primary_superclass"]
+        .value_counts(dropna=False)
+        .items()
+    )
     summary_df = pd.DataFrame(summary_rows)
     return audit_df, summary_df
-
 
 
 def main():
@@ -184,13 +203,17 @@ def main():
         (audit_df["single_superclass_only"] == 1)
         & (audit_df["primary_superclass"].isin(SUPERCLASS_ORDER))
     ].copy()
-    multiclass_df.to_csv(out_dir / "label_candidates_multiclass_superclass.csv", index=False)
+    multiclass_df.to_csv(
+        out_dir / "label_candidates_multiclass_superclass.csv", index=False
+    )
 
     print("=" * 80)
     print("PTB-XL label audit completed")
     print("=" * 80)
     print(f"Total records                 : {len(audit_df)}")
-    print(f"Binary keep (LVH or pure NORM): {int(audit_df['keep_for_binary_lvh_norm'].sum())}")
+    print(
+        f"Binary keep (LVH or pure NORM): {int(audit_df['keep_for_binary_lvh_norm'].sum())}"
+    )
     print(f"LVH records                  : {int(audit_df['is_lvh'].sum())}")
     print(f"Pure NORM records            : {int(audit_df['is_pure_norm'].sum())}")
     print(f"Single-superclass candidates : {len(multiclass_df)}")

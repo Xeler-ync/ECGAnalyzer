@@ -44,14 +44,13 @@ for i in Y.index[:100]:
         ),
     }
 
-    # Sanitize R peaks
-    r_peaks = {}
     orig_len = len(filtered_hp)
-    for name, out in r_peaks_raw.items():
-        r_peaks[name] = _round_and_clip_indices(
+    r_peaks = {
+        name: _round_and_clip_indices(
             out, orig_len, sig=filtered_hp, sig_name=name
         )
-
+        for name, out in r_peaks_raw.items()
+    }
     # Use the detected R peaks
     selected_r_peaks = r_peaks["Default (NeuroKit2)"]
 

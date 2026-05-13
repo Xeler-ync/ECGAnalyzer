@@ -524,14 +524,12 @@ def process_single_signal(signal_index):
         is_bpm_diff_significant=ibds,
     )
 
-    all_leads_normalized = {}
-
-    # Process all leads using the best R-peaks
-    for lead_idx in range(12):
-        all_leads_normalized[lead_idx] = process_lead_with_r_peaks(
+    all_leads_normalized = {
+        lead_idx: process_lead_with_r_peaks(
             X[0, :, lead_idx], best_r_peaks, lead_idx
         )
-
+        for lead_idx in range(12)
+    }
     # Pass the leads whose R-peaks were used to the plotting function
     plot_all_leads_normalized_heartbeats(
         all_leads_normalized,
@@ -547,18 +545,19 @@ def process_single_signal(signal_index):
 
 
 def main():
-    print("=" * 80)
-    print("ECG Signal Processing Workflow for Irregular Heartbeats")
-    print("=" * 80)
+    print(
+        f"{"=" * 80}\nECG Signal Processing Workflow for Irregular Heartbeats\n{"=" * 80}"
+    )
 
     current_backend = matplotlib.get_backend()
     matplotlib.use("Agg")
     max_workers = MAX_WORKERS
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = []
-        for signal_index in irregular:
-            futures.append(executor.submit(process_single_signal, signal_index))
-
+        futures.extend(
+            executor.submit(process_single_signal, signal_index)
+            for signal_index in irregular
+        )
         for future in tqdm(
             concurrent.futures.as_completed(futures),
             total=len(futures),
@@ -571,9 +570,9 @@ def main():
                 print(f"Error processing signal: {e}")
     matplotlib.use(current_backend)
 
-    print("=" * 80)
-    print("ECG Signal Processing Workflow for Irregular Heartbeats Completed")
-    print("=" * 80)
+    print(
+        f"{"=" * 80}\nECG Signal Processing Workflow for Irregular Heartbeats Completed\n{"=" * 80}"
+    )
 
 
 if __name__ == "__main__":

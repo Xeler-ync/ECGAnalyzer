@@ -171,9 +171,7 @@ def main():
             "Number of scp_codes must match number of min_value parameters"
         )
 
-    print("=" * 80)
-    print("ECG Signal Processing with SCP Code Filtering")
-    print("=" * 80)
+    print(f"{"=" * 80}\nECG Signal Processing with SCP Code Filtering\n{"=" * 80}")
     print(
         f"Filter criteria: {', '.join([f'{k}>={v}' for k, v in zip(args.scp_codes, args.min_value)])}"
     )
@@ -188,9 +186,7 @@ def main():
         scp_code_key=args.scp_codes, min_value=args.min_value, output_dir=output_dir
     )
 
-    print("=" * 80)
-    print("ECG Signal Processing Completed")
-    print("=" * 80)
+    print(f"{"=" * 80}\nECG Signal Processing Completed\n{"=" * 80}")
 
 
 if __name__ == "__main__":

@@ -194,7 +194,7 @@ def evaluate_methods_on_random_ecgs(
 ):
     random.seed(random_seed)
     indices = list(Y.index)
-    if len(indices) == 0:
+    if not indices:
         print("No records in Y")
         return {}, {}
 

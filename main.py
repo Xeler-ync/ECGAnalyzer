@@ -134,9 +134,7 @@ ecg_signal = X[0, :, lead_index]
 
 
 # Perform FFT analysis before any filtering
-print(f"\n{'='*80}")
-print(f"FFT-BASED BASELINE ANALYSIS")
-print(f"{'='*80}")
+print(f"\n{'='*80}\nFFT-BASED BASELINE ANALYSIS\n{'='*80}")
 
 if PLOT_CONFIG["fft_and_baseline_analysis"]:
     fft_analysis, fft_detrended = plot_fft_and_baseline_analysis(
@@ -300,9 +298,7 @@ r_peak_based_bpm = rr_analysis["heart_rate_bpm"]
 fft_based_bpm = calc_bpm_by_fft(filtered_hp, -1)
 
 # Compare BPM from R-peaks and FFT method
-print(f"\n{'='*80}")
-print(f"BPM COMPARISON (R-PEAKS vs FFT)")
-print(f"{'='*80}")
+print(f"\n{'='*80}\nBPM COMPARISON (R-PEAKS vs FFT)\n{'='*80}")
 print(f"R-peak based BPM: {r_peak_based_bpm:.2f} BPM")
 print(f"FFT based BPM:    {fft_based_bpm:.2f} BPM")
 print(f"Difference:       {abs(r_peak_based_bpm - fft_based_bpm):.2f} BPM")
@@ -351,9 +347,7 @@ if PLOT_CONFIG["bpm_comparision"]:
 heartbeats_II = extract_heartbeats(filtered_hp, selected_r_peaks, SAMPLING_RATE)
 
 # Display heartbeat information
-print(f"\n{'='*80}")
-print(f"ORIGINAL HEARTBEAT EXTRACTION RESULTS")
-print(f"{'='*80}")
+print(f"\n{'='*80}\nORIGINAL HEARTBEAT EXTRACTION RESULTS\n{'='*80}")
 
 if len(heartbeats_II) > 0:
     print(f"\nLead II: {len(heartbeats_II)} heartbeats extracted")
@@ -368,9 +362,7 @@ if len(heartbeats_II) > 0:
 if PLOT_CONFIG["heartbeats_overlay_original"]:
     plot_heartbeats_overlay_original(heartbeats_II, SAMPLING_RATE, "II", max_beats=15)
 
-print(f"\n{'='*80}")
-print(f"NORMALIZED HEARTBEAT EXTRACTION")
-print(f"{'='*80}")
+print(f"\n{'='*80}\nNORMALIZED HEARTBEAT EXTRACTION\n{'='*80}")
 
 # Normalize heartbeats
 normalized_II, pre_r_samp, post_r_samp, total_samp = split_and_resample_heartbeats(
@@ -433,25 +425,22 @@ print(f"Heart Rate Std Dev:     {rr_analysis['heart_rate_std']:.2f} BPM")
 print(f"\n{'='*80}")
 
 # Use R peaks from II lead to extract heartbeats from all leads
-print(f"\n{'='*80}")
-print(f"EXTRACTING HEARTBEATS FROM ALL LEADS USING II R PEAK DETECTION")
-print(f"{'='*80}")
+print(f"\n{'='*80}\nEXTRACTING HEARTBEATS FROM ALL LEADS USING II R PEAK DETECTION\n{'='*80}")
 
 # Define which leads to process (0-11 for all 12 leads)
 # Lead indices: 0=I, 1=II, 2=III, 3=aVR, 4=aVL, 5=aVF, 6=V1, 7=V2, 8=V3, 9=V4, 10=V5, 11=V6
-leads_to_process = [i for i in range(12)]  # all
+leads_to_process = list(range(12))
 
 # Dictionary to store results for all leads
 all_leads_data = {}
 all_leads_normalized = {}
 
-# Filter baseline for all leads first
-filtered_signals = {}
-for lead_idx in leads_to_process:
-    filtered_signals[lead_idx] = remove_baseline_wander_hp_filter(
+filtered_signals = {
+    lead_idx: remove_baseline_wander_hp_filter(
         X[0, :, lead_idx], SAMPLING_RATE, cutoff=0.5
     )
-
+    for lead_idx in leads_to_process
+}
 # Extract and normalize heartbeats for all leads using II's R peaks
 for lead_idx in leads_to_process:
     lead_name = LEAD_NAMES[lead_idx]
@@ -507,6 +496,4 @@ if PLOT_CONFIG["original_vs_normalized_multiple_leads"]:
         max_beats=8,
     )
 
-print(f"\n{'='*80}")
-print(f"MULTI-LEAD HEARTBEAT EXTRACTION COMPLETE")
-print(f"{'='*80}")
+print(f"\n{'='*80}\nMULTI-LEAD HEARTBEAT EXTRACTION COMPLETE\n{'='*80}")

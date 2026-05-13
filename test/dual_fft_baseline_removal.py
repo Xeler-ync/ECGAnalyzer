@@ -100,6 +100,12 @@ def plot_baseline_removed_signal(X, signal_index, leads_to_plot=None, auto_layou
     display_samples = 5000  # Number of samples to display
     display_time = display_samples / SAMPLING_RATE  # Convert to seconds
 
+    # Apply high-pass filter to extract baseline from frequency domain
+    # The interval between each peak in the comb spectrum is
+    # actually a heartbeat cycle, so it is greater than 1 Hz.
+    # We only need to remove frequencies less than 1 Hz.
+    cutoff_freq = 1  # Hz
+
     # Process and plot each lead
     for i, lead_idx in enumerate(leads_to_plot):
         lead_name = LEAD_NAMES[lead_idx]
@@ -149,17 +155,9 @@ def plot_baseline_removed_signal(X, signal_index, leads_to_plot=None, auto_layou
             fontsize=10,
             fontweight="bold",
         )
-        ax_time.set_xlabel("Time (seconds)")
-        ax_time.set_ylabel("Amplitude (mV)")
-        ax_time.grid(True, alpha=0.3)
-
-        # Show legend only in first subplot
-        if i == 0:
-            ax_time.legend(loc="upper right", fontsize="small")
-
-        # Set x-axis range based on sampling rate
-        ax_time.set_xlim(0, min(display_time, time_axis[-1]))
-
+        _extracted_from_plot_baseline_removed_signal_126(
+            ax_time, i, display_time, time_axis
+        )
         # ============ Plot 2: Frequency Domain (FFT Analysis) ============
         # Compute FFT for frequency domain analysis on the filtered signal
         n = len(filtered_signal)
@@ -173,12 +171,6 @@ def plot_baseline_removed_signal(X, signal_index, leads_to_plot=None, auto_layou
 
         # Compute magnitude spectrum
         fft_magnitude = np.abs(fft_signal) / n
-
-        # Apply high-pass filter to extract baseline from frequency domain
-        # The interval between each peak in the comb spectrum is
-        # actually a heartbeat cycle, so it is greater than 1 Hz.
-        # We only need to remove frequencies less than 1 Hz.
-        cutoff_freq = 1  # Hz
 
         # Apply FFT on the magnitude spectrum to get frequency components of the magnitude
         fft_of_magnitude = np.fft.rfft(fft_magnitude)
@@ -271,10 +263,9 @@ def plot_baseline_removed_signal(X, signal_index, leads_to_plot=None, auto_layou
             fontsize=10,
             fontweight="bold",
         )
-        ax_freq.set_xlabel("Frequency (Hz)")
-        ax_freq.set_ylabel("Magnitude")
-        ax_freq.grid(True, alpha=0.3)
-
+        _extracted_from_plot_baseline_removed_signal_126(
+            ax_freq, "Frequency (Hz)", "Magnitude"
+        )
         # Show legend only in first subplot
         if i == 0:
             ax_freq.legend(loc="upper right", fontsize="small")
@@ -318,10 +309,9 @@ def plot_baseline_removed_signal(X, signal_index, leads_to_plot=None, auto_layou
             fontsize=10,
             fontweight="bold",
         )
-        ax_time_domain_baseline.set_xlabel("Time (seconds)")
-        ax_time_domain_baseline.set_ylabel("Amplitude (mV)")
-        ax_time_domain_baseline.grid(True, alpha=0.3)
-
+        _extracted_from_plot_baseline_removed_signal_126(
+            ax_time_domain_baseline, "Time (seconds)", "Amplitude (mV)"
+        )
         # Set x-axis range based on sampling rate
         ax_time_domain_baseline.set_xlim(0, min(display_time, time_axis[-1]))
 
@@ -371,17 +361,9 @@ def plot_baseline_removed_signal(X, signal_index, leads_to_plot=None, auto_layou
             fontsize=10,
             fontweight="bold",
         )
-        ax_time_domain_filtered.set_xlabel("Time (seconds)")
-        ax_time_domain_filtered.set_ylabel("Amplitude (mV)")
-        ax_time_domain_filtered.grid(True, alpha=0.3)
-
-        # Show legend only in first subplot
-        if i == 0:
-            ax_time_domain_filtered.legend(loc="upper right", fontsize="small")
-
-        # Set x-axis range based on sampling rate
-        ax_time_domain_filtered.set_xlim(0, min(display_time, time_axis[-1]))
-
+        _extracted_from_plot_baseline_removed_signal_126(
+            ax_time_domain_filtered, i, display_time, time_axis
+        )
     # Hide unused subplots
     for i in range(num_leads * 4, len(axes)):
         axes[i].axis("off")
@@ -398,6 +380,26 @@ def plot_baseline_removed_signal(X, signal_index, leads_to_plot=None, auto_layou
 
     # Close the figure to free memory
     plt.close(fig)
+
+
+# TODO Rename this here and in `plot_baseline_removed_signal`
+def _extracted_from_plot_baseline_removed_signal_126(arg0, i, display_time, time_axis):
+    _extracted_from_plot_baseline_removed_signal_126(
+        arg0, "Time (seconds)", "Amplitude (mV)"
+    )
+        # Show legend only in first subplot
+    if i == 0:
+        arg0.legend(loc="upper right", fontsize="small")
+
+        # Set x-axis range based on sampling rate
+    arg0.set_xlim(0, min(display_time, time_axis[-1]))
+
+
+# TODO Rename this here and in `plot_baseline_removed_signal`
+def _extracted_from_plot_baseline_removed_signal_126(arg0, arg1, arg2):
+    arg0.set_xlabel(arg1)
+    arg0.set_ylabel(arg2)
+    arg0.grid(True, alpha=0.3)
 
 
 output_dir = os.path.join(os.path.dirname(RESULTS_PATH), "irregular")
@@ -417,7 +419,7 @@ with open("./data/irregular_indices.json", "r") as f:
 
 
 def process_irregular_signal(signal_index):
-    plot_baseline_removed_signal(X, signal_index, leads_to_plot=[i for i in range(12)])
+    plot_baseline_removed_signal(X, signal_index, leads_to_plot=list(range(12)))
     return signal_index
 
 

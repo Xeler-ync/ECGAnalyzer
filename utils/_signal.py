@@ -59,5 +59,4 @@ def resample_heartbeat(heartbeat_signal, target_length):
 
     x_old = np.linspace(0, 1, original_length)
     x_new = np.linspace(0, 1, target_length)
-    resampled = np.interp(x_new, x_old, heartbeat_signal)
-    return resampled
+    return np.interp(x_new, x_old, heartbeat_signal)

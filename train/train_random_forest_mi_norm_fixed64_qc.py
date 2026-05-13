@@ -1,5 +1,10 @@
+import sys, os
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import argparse
 import ast
+import contextlib
 import json
 import sys
 from pathlib import Path
@@ -19,11 +24,7 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 from sklearn.model_selection import GroupShuffleSplit
-
-# Make sure repo root is on sys.path.
-REPO_ROOT = Path(__file__).resolve().parent
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+import matplotlib.pyplot as plt
 
 from utils._config import LEAD_NAMES, PATH, SAMPLING_RATE
 from utils._data import Y, load_raw_data
@@ -31,11 +32,6 @@ from tools.ecg_heartbeat_normalization_pipeline import (
     process_ecg_signal,
     process_lead_with_r_peaks,
 )
-
-try:
-    import matplotlib.pyplot as plt
-except Exception:  # pragma: no cover - optional dependency at runtime
-    plt = None
 
 POSITIVE_LABEL = "MI"
 NEGATIVE_LABEL = "NORM"
@@ -55,6 +51,7 @@ PLOT_OUT_DIR = DEFAULT_OUT_DIR
 TARGET_NAMES = [NEGATIVE_LABEL, POSITIVE_LABEL]
 MAD_SCALE = 1.4826
 SUPERCLASS_ORDER = ["NORM", "HYP", "MI", "CD", "STTC"]
+REPO_ROOT = Path(__file__).resolve().parent
 
 
 def ensure_dict(x: Any) -> dict:
@@ -63,20 +60,15 @@ def ensure_dict(x: Any) -> dict:
     if pd.isna(x):
         return {}
     if isinstance(x, str):
-        try:
+        with contextlib.suppress(Exception):
             parsed = ast.literal_eval(x)
             if isinstance(parsed, dict):
                 return parsed
-        except Exception:
-            pass
-        try:
+        with contextlib.suppress(Exception):
             parsed = json.loads(x)
             if isinstance(parsed, dict):
                 return parsed
-        except Exception:
-            pass
     return {}
-
 
 
 def find_scp_statements_file() -> Path | None:
@@ -86,11 +78,7 @@ def find_scp_statements_file() -> Path | None:
         REPO_ROOT / "scp_statements.csv",
         REPO_ROOT / "data" / "scp_statements.csv",
     ]
-    for c in candidates:
-        if c.exists():
-            return c
-    return None
-
+    return next((c for c in candidates if c.exists()), None)
 
 
 def load_scp_statements() -> pd.DataFrame | None:
@@ -102,13 +90,17 @@ def load_scp_statements() -> pd.DataFrame | None:
     return df
 
 
-
 def build_superclass_lookup(scp_df: pd.DataFrame | None) -> dict[str, str]:
     lookup: dict[str, str] = {}
     if scp_df is None:
         return lookup
 
-    candidate_cols = ["diagnostic_class", "diagnostic superclass", "diagnostic_superclass", "diagnostic"]
+    candidate_cols = [
+        "diagnostic_class",
+        "diagnostic superclass",
+        "diagnostic_superclass",
+        "diagnostic",
+    ]
     super_col = None
     for col in candidate_cols:
         if col in scp_df.columns:
@@ -124,8 +116,11 @@ def build_superclass_lookup(scp_df: pd.DataFrame | None) -> dict[str, str]:
     return lookup
 
 
-
-def map_superclasses(scp_codes: dict, superclass_lookup: dict[str, str], threshold: int = TARGET_THRESHOLD) -> list[str]:
+def map_superclasses(
+    scp_codes: dict,
+    superclass_lookup: dict[str, str],
+    threshold: int = TARGET_THRESHOLD,
+) -> list[str]:
     out = set()
     for code, score in scp_codes.items():
         try:
@@ -133,8 +128,7 @@ def map_superclasses(scp_codes: dict, superclass_lookup: dict[str, str], thresho
         except Exception:
             is_positive = False
         if is_positive:
-            sc = superclass_lookup.get(code)
-            if sc:
+            if sc:= superclass_lookup.get(code):
                 out.add(sc)
     if scp_codes.get("NORM", 0) >= threshold:
         out.add("NORM")
@@ -143,7 +137,6 @@ def map_superclasses(scp_codes: dict, superclass_lookup: dict[str, str], thresho
 
 SCP_DF = load_scp_statements()
 SUPERCLASS_LOOKUP = build_superclass_lookup(SCP_DF)
-
 
 
 def resample_1d(x: np.ndarray, target_len: int) -> np.ndarray:
@@ -157,20 +150,22 @@ def resample_1d(x: np.ndarray, target_len: int) -> np.ndarray:
     return np.interp(new_axis, old_axis, x).astype(np.float32)
 
 
-
 def is_pure_norm(scp_codes: dict, threshold: int = TARGET_THRESHOLD) -> bool:
     if not isinstance(scp_codes, dict):
         return False
     if scp_codes.get(NEGATIVE_LABEL, 0) < threshold:
         return False
     other_positive_codes = [
-        code for code, score in scp_codes.items() if code != NEGATIVE_LABEL and score >= threshold
+        code
+        for code, score in scp_codes.items()
+        if code != NEGATIVE_LABEL and score >= threshold
     ]
-    return len(other_positive_codes) == 0
+    return not other_positive_codes
 
 
-
-def is_strict_mi(scp_codes: dict, threshold: int = TARGET_THRESHOLD) -> tuple[bool, list[str]]:
+def is_strict_mi(
+    scp_codes: dict, threshold: int = TARGET_THRESHOLD
+) -> tuple[bool, list[str]]:
     """
     Strict MI definition for the first MI baseline:
       - At least one SCP code maps to superclass MI
@@ -183,7 +178,6 @@ def is_strict_mi(scp_codes: dict, threshold: int = TARGET_THRESHOLD) -> tuple[bo
     return (len(superclasses) == 1 and superclasses[0] == POSITIVE_LABEL), superclasses
 
 
-
 def get_binary_label_mi_norm(scp_codes: dict, threshold: int = TARGET_THRESHOLD):
     if not isinstance(scp_codes, dict):
         return None, [], False, False
@@ -192,9 +186,8 @@ def get_binary_label_mi_norm(scp_codes: dict, threshold: int = TARGET_THRESHOLD)
     if is_mi:
         return 1, superclasses, True, False
     if is_norm:
-        return 0, superclasses if superclasses else [NEGATIVE_LABEL], False, True
+        return 0, superclasses or [NEGATIVE_LABEL], False, True
     return None, superclasses, False, False
-
 
 
 def infer_r_index_from_beat(beat: dict, signal: np.ndarray) -> int:
@@ -208,13 +201,10 @@ def infer_r_index_from_beat(beat: dict, signal: np.ndarray) -> int:
     ]
     for key in candidate_keys:
         if key in beat and beat[key] is not None:
-            try:
+            with contextlib.suppress(Exception):
                 idx = int(round(float(beat[key])))
                 return max(0, min(idx, len(signal) - 1))
-            except Exception:
-                pass
     return len(signal) // 2
-
 
 
 def normalize_heartbeat_fixed64(beat: dict) -> np.ndarray:
@@ -248,8 +238,9 @@ def normalize_heartbeat_fixed64(beat: dict) -> np.ndarray:
     return out
 
 
-
-def robust_outlier_filter(beats_2d: np.ndarray, mad_k: float = 3.5) -> tuple[np.ndarray, np.ndarray, float]:
+def robust_outlier_filter(
+    beats_2d: np.ndarray, mad_k: float = 3.5
+) -> tuple[np.ndarray, np.ndarray, float]:
     beats_2d = np.asarray(beats_2d, dtype=float)
     if beats_2d.ndim != 2 or beats_2d.shape[0] == 0:
         raise ValueError("beats_2d must have shape [n_beats, 64]")
@@ -274,7 +265,6 @@ def robust_outlier_filter(beats_2d: np.ndarray, mad_k: float = 3.5) -> tuple[np.
     return beats_2d[keep_mask].astype(np.float32), keep_mask, float(threshold)
 
 
-
 def normalize_mode_apply(x: np.ndarray, normalize_mode: str) -> np.ndarray:
     x = np.asarray(x, dtype=float)
     if normalize_mode == "none":
@@ -288,8 +278,9 @@ def normalize_mode_apply(x: np.ndarray, normalize_mode: str) -> np.ndarray:
     raise ValueError(f"Unknown normalize_mode: {normalize_mode}")
 
 
-
-def summarize_lead_beats(normalized_heartbeats: list[dict], normalize_mode: str = "none") -> dict[str, Any]:
+def summarize_lead_beats(
+    normalized_heartbeats: list[dict], normalize_mode: str = "none"
+) -> dict[str, Any]:
     fixed_beats = []
     rejected_short = 0
     for beat in normalized_heartbeats:
@@ -299,7 +290,9 @@ def summarize_lead_beats(normalized_heartbeats: list[dict], normalize_mode: str 
             rejected_short += 1
 
     if len(fixed_beats) < MIN_BEATS_PER_LEAD:
-        raise ValueError(f"Too few valid fixed64 beats after normalization: {len(fixed_beats)}")
+        raise ValueError(
+            f"Too few valid fixed64 beats after normalization: {len(fixed_beats)}"
+        )
 
     beats_2d = np.vstack(fixed_beats)
     kept_beats, keep_mask, qc_threshold = robust_outlier_filter(beats_2d)
@@ -314,7 +307,7 @@ def summarize_lead_beats(normalized_heartbeats: list[dict], normalize_mode: str 
         "mean_beat": mean_beat.astype(np.float32),
         "all_beats": beats_2d.astype(np.float32),
         "kept_beats": kept_beats.astype(np.float32),
-        "n_input_beats": int(len(normalized_heartbeats)),
+        "n_input_beats": len(normalized_heartbeats),
         "n_valid_fixed64": int(beats_2d.shape[0]),
         "n_kept_after_qc": int(kept_beats.shape[0]),
         "n_removed_as_outliers": int((~keep_mask).sum()),
@@ -322,7 +315,6 @@ def summarize_lead_beats(normalized_heartbeats: list[dict], normalize_mode: str 
         "mean_std": float(np.mean(beat_std)),
         "qc_threshold": float(qc_threshold),
     }
-
 
 
 def build_feature_for_record(
@@ -344,9 +336,13 @@ def build_feature_for_record(
         if lead_idx == lead_ii_idx:
             normalized_beats = results_ii["normalized_heartbeats"]
         else:
-            normalized_beats = process_lead_with_r_peaks(ecg[:, lead_idx], r_peaks, lead_idx)
+            normalized_beats = process_lead_with_r_peaks(
+                ecg[:, lead_idx], r_peaks, lead_idx
+            )
 
-        lead_summary = summarize_lead_beats(normalized_beats, normalize_mode=normalize_mode)
+        lead_summary = summarize_lead_beats(
+            normalized_beats, normalize_mode=normalize_mode
+        )
         lead_summary["lead_name"] = lead_name
         lead_summary["lead_idx"] = int(lead_idx)
         features.append(lead_summary["mean_beat"])
@@ -354,15 +350,22 @@ def build_feature_for_record(
 
     feature_3d = np.stack(features, axis=0).astype(np.float32)
     qc_meta = {
-        "detected_r_peaks": int(len(r_peaks)),
-        "lead_min_valid_fixed64": int(min(s["n_valid_fixed64"] for s in lead_summaries)),
-        "lead_min_kept_after_qc": int(min(s["n_kept_after_qc"] for s in lead_summaries)),
-        "lead_mean_kept_after_qc": float(np.mean([s["n_kept_after_qc"] for s in lead_summaries])),
-        "total_removed_as_outliers": int(sum(s["n_removed_as_outliers"] for s in lead_summaries)),
+        "detected_r_peaks": len(r_peaks),
+        "lead_min_valid_fixed64": int(
+            min(s["n_valid_fixed64"] for s in lead_summaries)
+        ),
+        "lead_min_kept_after_qc": int(
+            min(s["n_kept_after_qc"] for s in lead_summaries)
+        ),
+        "lead_mean_kept_after_qc": float(
+            np.mean([s["n_kept_after_qc"] for s in lead_summaries])
+        ),
+        "total_removed_as_outliers": int(
+            sum(s["n_removed_as_outliers"] for s in lead_summaries)
+        ),
         "mean_alignment_std": float(np.mean([s["mean_std"] for s in lead_summaries])),
     }
     return feature_3d, qc_meta, ecg, lead_summaries
-
 
 
 def save_qc_plot(
@@ -373,8 +376,6 @@ def save_qc_plot(
     label_name: str,
     lead_name: str = "II",
 ):
-    if plt is None:
-        return
     lead_idx = LEAD_NAMES.index(lead_name)
     lead_summary = lead_summaries[lead_idx]
     raw_signal = ecg[:, lead_idx]
@@ -387,7 +388,9 @@ def save_qc_plot(
 
     ax1 = fig.add_subplot(gs[0, 0])
     ax1.plot(raw_signal)
-    ax1.set_title(f"Raw ECG Lead {lead_name} | record={signal_index} | label={label_name}")
+    ax1.set_title(
+        f"Raw ECG Lead {lead_name} | record={signal_index} | label={label_name}"
+    )
     ax1.set_xlabel("Time sample")
     ax1.set_ylabel("Amplitude")
 
@@ -409,9 +412,10 @@ def save_qc_plot(
     fig.tight_layout()
     plot_dir = out_dir / "qc_plots"
     plot_dir.mkdir(parents=True, exist_ok=True)
-    fig.savefig(plot_dir / f"record_{signal_index}_{label_name}_lead_{lead_name}.png", dpi=150)
+    fig.savefig(
+        plot_dir / f"record_{signal_index}_{label_name}_lead_{lead_name}.png", dpi=150
+    )
     plt.close(fig)
-
 
 
 def build_dataset(
@@ -430,9 +434,11 @@ def build_dataset(
     for signal_index in tqdm(range(total_records), desc="Building RF dataset"):
         try:
             scp_codes = ensure_dict(Y.scp_codes.iloc[signal_index])
-            label, superclasses, is_strict_mi_label, is_pure_norm_label = get_binary_label_mi_norm(
-                scp_codes,
-                threshold=TARGET_THRESHOLD,
+            label, superclasses, is_strict_mi_label, is_pure_norm_label = (
+                get_binary_label_mi_norm(
+                    scp_codes,
+                    threshold=TARGET_THRESHOLD,
+                )
             )
             if label is None:
                 skipped.append((signal_index, "not strict MI or pure NORM"))
@@ -459,21 +465,25 @@ def build_dataset(
                     "strict_mi": int(is_strict_mi_label),
                     "pure_norm": int(is_pure_norm_label),
                     "diagnostic_superclasses": ";".join(superclasses),
-                    "n_superclasses": int(len(superclasses)),
+                    "n_superclasses": len(superclasses),
                     "raw_scp_codes": json.dumps(scp_codes, ensure_ascii=False),
                     **qc_meta,
                 }
             )
 
             if save_qc_plots > 0 and qc_plots_written < save_qc_plots:
-                save_qc_plot(out_dir_for_plots, signal_index, ecg, lead_summaries, label_name)
+                save_qc_plot(
+                    out_dir_for_plots, signal_index, ecg, lead_summaries, label_name
+                )
                 qc_plots_written += 1
 
         except Exception as e:
             skipped.append((signal_index, str(e)))
 
     if not X_3d_list:
-        raise RuntimeError("No usable ECG records were produced. Check dataset path/config.")
+        raise RuntimeError(
+            "No usable ECG records were produced. Check dataset path/config."
+        )
 
     X_3d = np.stack(X_3d_list, axis=0).astype(np.float32)
     X_flat = X_3d.reshape(X_3d.shape[0], -1).astype(np.float32)
@@ -483,7 +493,6 @@ def build_dataset(
     meta = pd.DataFrame(metadata_rows)
     skipped_df = pd.DataFrame(skipped, columns=["signal_index", "reason"])
     return X_3d, X_flat, y, groups, meta, skipped_df
-
 
 
 def save_processed_dataset(
@@ -503,7 +512,7 @@ def save_processed_dataset(
     skipped_df.to_csv(out_dir / "skipped_records.csv", index=False)
 
     summary = {
-        "n_samples": int(len(y)),
+        "n_samples": len(y),
         "n_positive": int((y == 1).sum()),
         "n_negative": int((y == 0).sum()),
         "positive_label": POSITIVE_LABEL,
@@ -524,15 +533,26 @@ def save_processed_dataset(
         json.dump(summary, f, indent=2, ensure_ascii=False)
 
     qc_summary = {
-        "detected_r_peaks_mean": float(meta["detected_r_peaks"].mean()) if len(meta) else float("nan"),
-        "lead_min_kept_after_qc_mean": float(meta["lead_min_kept_after_qc"].mean()) if len(meta) else float("nan"),
-        "lead_mean_kept_after_qc_mean": float(meta["lead_mean_kept_after_qc"].mean()) if len(meta) else float("nan"),
-        "total_removed_as_outliers_mean": float(meta["total_removed_as_outliers"].mean()) if len(meta) else float("nan"),
-        "mean_alignment_std_mean": float(meta["mean_alignment_std"].mean()) if len(meta) else float("nan"),
+        "detected_r_peaks_mean": (
+            float(meta["detected_r_peaks"].mean()) if len(meta) else float("nan")
+        ),
+        "lead_min_kept_after_qc_mean": (
+            float(meta["lead_min_kept_after_qc"].mean()) if len(meta) else float("nan")
+        ),
+        "lead_mean_kept_after_qc_mean": (
+            float(meta["lead_mean_kept_after_qc"].mean()) if len(meta) else float("nan")
+        ),
+        "total_removed_as_outliers_mean": (
+            float(meta["total_removed_as_outliers"].mean())
+            if len(meta)
+            else float("nan")
+        ),
+        "mean_alignment_std_mean": (
+            float(meta["mean_alignment_std"].mean()) if len(meta) else float("nan")
+        ),
     }
     with open(out_dir / "qc_summary.json", "w", encoding="utf-8") as f:
         json.dump(qc_summary, f, indent=2, ensure_ascii=False)
-
 
 
 def load_processed_dataset(out_dir: Path):
@@ -549,10 +569,8 @@ def load_processed_dataset(out_dir: Path):
     return X_3d, X_flat, y, groups, meta, skipped_df
 
 
-
 def _has_both_classes(y_part: np.ndarray) -> bool:
     return len(np.unique(y_part)) == 2
-
 
 
 def grouped_split_indices(
@@ -571,29 +589,45 @@ def grouped_split_indices(
 
         train_val_groups = groups[train_val_idx]
         train_val_y = y[train_val_idx]
-        gss_val = GroupShuffleSplit(n_splits=1, test_size=val_size, random_state=rs + 1000)
-        rel_train_idx, rel_val_idx = next(gss_val.split(X[train_val_idx], train_val_y, groups=train_val_groups))
+        gss_val = GroupShuffleSplit(
+            n_splits=1, test_size=val_size, random_state=rs + 1000
+        )
+        rel_train_idx, rel_val_idx = next(
+            gss_val.split(X[train_val_idx], train_val_y, groups=train_val_groups)
+        )
 
         train_idx = train_val_idx[rel_train_idx]
         val_idx = train_val_idx[rel_val_idx]
-        if _has_both_classes(y[train_idx]) and _has_both_classes(y[val_idx]) and _has_both_classes(y[test_idx]):
+        if (
+            _has_both_classes(y[train_idx])
+            and _has_both_classes(y[val_idx])
+            and _has_both_classes(y[test_idx])
+        ):
             return train_idx, val_idx, test_idx
-    raise RuntimeError("Failed to create group-aware splits with both classes in each split")
+    raise RuntimeError(
+        "Failed to create group-aware splits with both classes in each split"
+    )
 
 
-
-def compute_binary_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray) -> dict:
+def compute_binary_metrics(
+    y_true: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray
+) -> dict:
     return {
         "accuracy": float(accuracy_score(y_true, y_pred)),
         "precision": float(precision_score(y_true, y_pred, zero_division=0)),
         "recall": float(recall_score(y_true, y_pred, zero_division=0)),
         "f1": float(f1_score(y_true, y_pred, zero_division=0)),
-        "roc_auc": float(roc_auc_score(y_true, y_prob)) if len(np.unique(y_true)) > 1 else float("nan"),
+        "roc_auc": (
+            float(roc_auc_score(y_true, y_prob))
+            if len(np.unique(y_true)) > 1
+            else float("nan")
+        ),
     }
 
 
-
-def find_best_threshold(y_true: np.ndarray, y_prob: np.ndarray, threshold_grid=DEFAULT_THRESHOLD_GRID):
+def find_best_threshold(
+    y_true: np.ndarray, y_prob: np.ndarray, threshold_grid=DEFAULT_THRESHOLD_GRID
+):
     rows = []
     best_threshold = 0.5
     best_f1 = -1.0
@@ -602,12 +636,18 @@ def find_best_threshold(y_true: np.ndarray, y_prob: np.ndarray, threshold_grid=D
         precision = precision_score(y_true, y_pred, zero_division=0)
         recall = recall_score(y_true, y_pred, zero_division=0)
         f1 = f1_score(y_true, y_pred, zero_division=0)
-        rows.append({"threshold": float(threshold), "precision": float(precision), "recall": float(recall), "f1": float(f1)})
+        rows.append(
+            {
+                "threshold": float(threshold),
+                "precision": float(precision),
+                "recall": float(recall),
+                "f1": float(f1),
+            }
+        )
         if f1 > best_f1:
             best_f1 = float(f1)
             best_threshold = float(threshold)
     return best_threshold, pd.DataFrame(rows)
-
 
 
 def train_and_evaluate(
@@ -642,9 +682,9 @@ def train_and_evaluate(
     tuned_metrics = compute_binary_metrics(y_test, test_pred_tuned, test_prob)
 
     split_info = {
-        "train_size": int(len(train_idx)),
-        "val_size": int(len(val_idx)),
-        "test_size": int(len(test_idx)),
+        "train_size": len(train_idx),
+        "val_size": len(val_idx),
+        "test_size": len(test_idx),
         "positive_train": int(y_train.sum()),
         "positive_val": int(y_val.sum()),
         "positive_test": int(y_test.sum()),
@@ -658,11 +698,29 @@ def train_and_evaluate(
     default_cm = confusion_matrix(y_test, test_pred_default, labels=[0, 1])
     tuned_cm = confusion_matrix(y_test, test_pred_tuned, labels=[0, 1])
 
-    default_report = classification_report(y_test, test_pred_default, labels=[0, 1], target_names=TARGET_NAMES, digits=4, zero_division=0)
-    tuned_report = classification_report(y_test, test_pred_tuned, labels=[0, 1], target_names=TARGET_NAMES, digits=4, zero_division=0)
+    default_report = classification_report(
+        y_test,
+        test_pred_default,
+        labels=[0, 1],
+        target_names=TARGET_NAMES,
+        digits=4,
+        zero_division=0,
+    )
+    tuned_report = classification_report(
+        y_test,
+        test_pred_tuned,
+        labels=[0, 1],
+        target_names=TARGET_NAMES,
+        digits=4,
+        zero_division=0,
+    )
 
-    lead_importance = clf.feature_importances_.reshape(len(LEAD_NAMES), TARGET_BEAT_LEN).sum(axis=1)
-    lead_importance_df = pd.DataFrame({"lead": LEAD_NAMES, "importance": lead_importance}).sort_values("importance", ascending=False)
+    lead_importance = clf.feature_importances_.reshape(
+        len(LEAD_NAMES), TARGET_BEAT_LEN
+    ).sum(axis=1)
+    lead_importance_df = pd.DataFrame(
+        {"lead": LEAD_NAMES, "importance": lead_importance}
+    ).sort_values("importance", ascending=False)
 
     return {
         "model": clf,
@@ -678,22 +736,31 @@ def train_and_evaluate(
     }
 
 
-
 def save_training_outputs(out_dir: Path, results: dict):
     metrics_rows = []
-    for setting_name, metric_dict in [("default_0.50", results["default_metrics"]), ("tuned_threshold", results["tuned_metrics"] )]:
+    for setting_name, metric_dict in [
+        ("default_0.50", results["default_metrics"]),
+        ("tuned_threshold", results["tuned_metrics"]),
+    ]:
         row = {"setting": setting_name}
-        row.update(results["split_info"])
-        row.update(metric_dict)
+        row |= results["split_info"]
+        row |= metric_dict
         metrics_rows.append(row)
     pd.DataFrame(metrics_rows).to_csv(out_dir / "metrics_comparison.csv", index=False)
-    results["threshold_df"].to_csv(out_dir / "validation_threshold_search.csv", index=False)
+    results["threshold_df"].to_csv(
+        out_dir / "validation_threshold_search.csv", index=False
+    )
     results["lead_importance_df"].to_csv(out_dir / "lead_importance.csv", index=False)
-    np.savetxt(out_dir / "confusion_matrix_default.txt", results["default_cm"], fmt="%d")
+    np.savetxt(
+        out_dir / "confusion_matrix_default.txt", results["default_cm"], fmt="%d"
+    )
     np.savetxt(out_dir / "confusion_matrix_tuned.txt", results["tuned_cm"], fmt="%d")
-    (out_dir / "classification_report_default.txt").write_text(results["default_report"], encoding="utf-8")
-    (out_dir / "classification_report_tuned.txt").write_text(results["tuned_report"], encoding="utf-8")
-
+    (out_dir / "classification_report_default.txt").write_text(
+        results["default_report"], encoding="utf-8"
+    )
+    (out_dir / "classification_report_tuned.txt").write_text(
+        results["tuned_report"], encoding="utf-8"
+    )
 
 
 def print_metrics_block(title: str, metrics: dict):
@@ -703,32 +770,48 @@ def print_metrics_block(title: str, metrics: dict):
     print()
 
 
-
 def main():
-    parser = argparse.ArgumentParser(description="Random Forest for strict MI vs pure NORM with fixed64 + QC")
+    parser = argparse.ArgumentParser(
+        description="Random Forest for strict MI vs pure NORM with fixed64 + QC"
+    )
     parser.add_argument("--out-dir", type=str, default=str(DEFAULT_OUT_DIR))
     parser.add_argument("--max-records", type=int, default=None)
-    parser.add_argument("--normalize-mode", type=str, choices=["none", "zscore"], default="none")
+    parser.add_argument(
+        "--normalize-mode", type=str, choices=["none", "zscore"], default="none"
+    )
     parser.add_argument("--rebuild-dataset", action="store_true")
     parser.add_argument("--build-only", action="store_true")
     parser.add_argument("--n-estimators", type=int, default=DEFAULT_N_ESTIMATORS)
-    parser.add_argument("--min-samples-leaf", type=int, default=DEFAULT_MIN_SAMPLES_LEAF)
-    parser.add_argument("--save-qc-plots", type=int, default=0, help="Save this many QC example plots")
+    parser.add_argument(
+        "--min-samples-leaf", type=int, default=DEFAULT_MIN_SAMPLES_LEAF
+    )
+    parser.add_argument(
+        "--save-qc-plots", type=int, default=0, help="Save this many QC example plots"
+    )
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir)
     global PLOT_OUT_DIR
     PLOT_OUT_DIR = out_dir
 
-    dataset_files = [out_dir / "X_3d.npy", out_dir / "X_flat.npy", out_dir / "y.npy", out_dir / "metadata.csv"]
+    dataset_files = [
+        out_dir / "X_3d.npy",
+        out_dir / "X_flat.npy",
+        out_dir / "y.npy",
+        out_dir / "metadata.csv",
+    ]
 
     print("=" * 80)
     print("Random Forest for strict MI vs pure NORM classification (fixed64 + QC)")
     print("=" * 80)
-    print(f"Positive class     : strict {POSITIVE_LABEL} (single diagnostic superclass only)")
+    print(
+        f"Positive class     : strict {POSITIVE_LABEL} (single diagnostic superclass only)"
+    )
     print(f"Negative class     : pure {NEGATIVE_LABEL} >= {TARGET_THRESHOLD}")
     print("Other records      : excluded")
-    print(f"Heartbeat rule     : {LEFT_POINTS} samples before/including R + {RIGHT_POINTS} after R")
+    print(
+        f"Heartbeat rule     : {LEFT_POINTS} samples before/including R + {RIGHT_POINTS} after R"
+    )
     print(f"Beat feature       : {len(LEAD_NAMES)} leads x {TARGET_BEAT_LEN} samples")
     print(f"Normalize mode     : {args.normalize_mode}")
     print("QC rule            : robust beat outlier removal per lead")
@@ -743,7 +826,9 @@ def main():
             normalize_mode=args.normalize_mode,
             save_qc_plots=args.save_qc_plots,
         )
-        save_processed_dataset(out_dir, X_3d, X_flat, y, meta, skipped_df, args.normalize_mode)
+        save_processed_dataset(
+            out_dir, X_3d, X_flat, y, meta, skipped_df, args.normalize_mode
+        )
     else:
         print("Loading cached processed dataset...")
         X_3d, X_flat, y, groups, meta, skipped_df = load_processed_dataset(out_dir)
@@ -755,18 +840,28 @@ def main():
     if len(meta):
         print(f"Mean detected R     : {meta['detected_r_peaks'].mean():.2f}")
         print(f"Mean kept beats     : {meta['lead_mean_kept_after_qc'].mean():.2f}")
-        print(f"Mean removed outlier beats : {meta['total_removed_as_outliers'].mean():.2f}")
+        print(
+            f"Mean removed outlier beats : {meta['total_removed_as_outliers'].mean():.2f}"
+        )
     print(f"Saved dataset path  : {out_dir.resolve()}")
     print()
 
     if len(np.unique(y)) < 2:
-        raise RuntimeError("Dataset contains fewer than 2 classes after filtering. Cannot train binary classifier.")
+        raise RuntimeError(
+            "Dataset contains fewer than 2 classes after filtering. Cannot train binary classifier."
+        )
 
     if args.build_only:
         print("Dataset build completed. Training skipped because --build-only was set.")
         return
 
-    results = train_and_evaluate(X_flat, y, groups, n_estimators=args.n_estimators, min_samples_leaf=args.min_samples_leaf)
+    results = train_and_evaluate(
+        X_flat,
+        y,
+        groups,
+        n_estimators=args.n_estimators,
+        min_samples_leaf=args.min_samples_leaf,
+    )
     save_training_outputs(out_dir, results)
 
     print("Split info")
@@ -774,16 +869,23 @@ def main():
         print(f"- {k}: {v}")
     print()
 
-    print_metrics_block("Test metrics @ default threshold = 0.50", results["default_metrics"])
-    print_metrics_block(f"Test metrics @ tuned threshold = {results['split_info']['best_threshold_from_val_f1']:.2f}", results["tuned_metrics"])
+    print_metrics_block(
+        "Test metrics @ default threshold = 0.50", results["default_metrics"]
+    )
+    print_metrics_block(
+        f"Test metrics @ tuned threshold = {results['split_info']['best_threshold_from_val_f1']:.2f}",
+        results["tuned_metrics"],
+    )
 
-    print(f"Confusion matrix @ default threshold (rows=true, cols=pred; order={TARGET_NAMES})")
-    print(results["default_cm"])
-    print()
+    print(
+        f"Confusion matrix @ default threshold (rows=true, cols=pred; order={TARGET_NAMES})"
+    )
+    print(f"{results["default_cm"]}\n")
 
-    print(f"Confusion matrix @ tuned threshold (rows=true, cols=pred; order={TARGET_NAMES})")
-    print(results["tuned_cm"])
-    print()
+    print(
+        f"Confusion matrix @ tuned threshold (rows=true, cols=pred; order={TARGET_NAMES})"
+    )
+    print(f"{results["tuned_cm"]}\n")
 
     print("Lead importance (summed over 64 points)")
     for _, row in results["lead_importance_df"].iterrows():

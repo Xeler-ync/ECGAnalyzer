@@ -59,17 +59,15 @@ def _round_and_clip_indices(pks, L, sig=None, sig_name="signal"):
             a = np.asarray(pks)
             if a.size == 0:
                 fallback = np.array([], dtype=int)
-            else:
-                # if detector returned a boolean vector matching L, convert
-                if (
+            elif (
                     a.ndim == 1
                     and a.size == L
                     and set(np.unique(a)).issubset({0, 1, True, False})
                 ):
-                    fallback = np.where(a == 1)[0]
-                else:
-                    fallback = np.round(a.astype(float)).astype(int)
-                    fallback = np.unique(np.clip(fallback, 0, L - 1))
+                fallback = np.where(a == 1)[0]
+            else:
+                fallback = np.round(a.astype(float)).astype(int)
+                fallback = np.unique(np.clip(fallback, 0, L - 1))
         except Exception:
             fallback = np.array([], dtype=int)
         return fallback.astype(int)

@@ -1,6 +1,10 @@
+import sys, os
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import argparse
+import contextlib
 import json
-import math
 import sys
 from pathlib import Path
 from typing import Any
@@ -19,11 +23,7 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 from sklearn.model_selection import GroupShuffleSplit
-
-# Make sure repo root is on sys.path.
-REPO_ROOT = Path(__file__).resolve().parent
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+import matplotlib.pyplot as plt
 
 from utils._config import LEAD_NAMES, PATH, SAMPLING_RATE
 from utils._data import Y, load_raw_data
@@ -32,10 +32,6 @@ from tools.ecg_heartbeat_normalization_pipeline import (
     process_lead_with_r_peaks,
 )
 
-try:
-    import matplotlib.pyplot as plt
-except Exception:  # pragma: no cover - optional dependency at runtime
-    plt = None
 
 POSITIVE_LABEL = "LVH"
 NEGATIVE_LABEL = "NORM"
@@ -54,6 +50,7 @@ DEFAULT_OUT_DIR = Path("results/random_forest_lvh_vs_norm_fixed64_qc")
 PLOT_OUT_DIR = DEFAULT_OUT_DIR
 TARGET_NAMES = [NEGATIVE_LABEL, POSITIVE_LABEL]
 MAD_SCALE = 1.4826
+REPO_ROOT = Path(__file__).resolve().parent
 
 
 def resample_1d(x: np.ndarray, target_len: int) -> np.ndarray:
@@ -75,7 +72,7 @@ def is_pure_norm(scp_codes: dict, threshold: int = TARGET_THRESHOLD) -> bool:
     other_positive_codes = [
         code for code, score in scp_codes.items() if code != NEGATIVE_LABEL and score >= threshold
     ]
-    return len(other_positive_codes) == 0
+    return not other_positive_codes
 
 
 def get_binary_label_lvh_norm(scp_codes: dict, threshold: int = TARGET_THRESHOLD):
@@ -85,9 +82,7 @@ def get_binary_label_lvh_norm(scp_codes: dict, threshold: int = TARGET_THRESHOLD
     is_norm = is_pure_norm(scp_codes, threshold)
     if is_lvh:
         return 1
-    if is_norm:
-        return 0
-    return None
+    return 0 if is_norm else None
 
 
 def infer_r_index_from_beat(beat: dict, signal: np.ndarray) -> int:
@@ -101,12 +96,9 @@ def infer_r_index_from_beat(beat: dict, signal: np.ndarray) -> int:
     ]
     for key in candidate_keys:
         if key in beat and beat[key] is not None:
-            try:
+            with contextlib.suppress(Exception):
                 idx = int(round(float(beat[key])))
                 return max(0, min(idx, len(signal) - 1))
-            except Exception:
-                pass
-
     # Fallback: use middle point if the upstream pipeline does not expose the exact R index.
     return len(signal) // 2
 
@@ -215,7 +207,7 @@ def summarize_lead_beats(normalized_heartbeats: list[dict], normalize_mode: str 
         "mean_beat": mean_beat.astype(np.float32),
         "all_beats": beats_2d.astype(np.float32),
         "kept_beats": kept_beats.astype(np.float32),
-        "n_input_beats": int(len(normalized_heartbeats)),
+        "n_input_beats": len(normalized_heartbeats),
         "n_valid_fixed64": int(beats_2d.shape[0]),
         "n_kept_after_qc": int(kept_beats.shape[0]),
         "n_removed_as_outliers": int((~keep_mask).sum()),
@@ -255,7 +247,7 @@ def build_feature_for_record(
 
     feature_3d = np.stack(features, axis=0).astype(np.float32)
     qc_meta = {
-        "detected_r_peaks": int(len(r_peaks)),
+        "detected_r_peaks": len(r_peaks),
         "lead_min_valid_fixed64": int(min(s["n_valid_fixed64"] for s in lead_summaries)),
         "lead_min_kept_after_qc": int(min(s["n_kept_after_qc"] for s in lead_summaries)),
         "lead_mean_kept_after_qc": float(np.mean([s["n_kept_after_qc"] for s in lead_summaries])),
@@ -274,8 +266,6 @@ def save_qc_plot(
     label_name: str,
     lead_name: str = "II",
 ):
-    if plt is None:
-        return
     lead_idx = LEAD_NAMES.index(lead_name)
     lead_summary = lead_summaries[lead_idx]
     raw_signal = ecg[:, lead_idx]
@@ -399,7 +389,7 @@ def save_processed_dataset(
     skipped_df.to_csv(out_dir / "skipped_records.csv", index=False)
 
     summary = {
-        "n_samples": int(len(y)),
+        "n_samples": len(y),
         "n_positive": int((y == 1).sum()),
         "n_negative": int((y == 0).sum()),
         "positive_label": POSITIVE_LABEL,
@@ -536,9 +526,9 @@ def train_and_evaluate(
     tuned_metrics = compute_binary_metrics(y_test, test_pred_tuned, test_prob)
 
     split_info = {
-        "train_size": int(len(train_idx)),
-        "val_size": int(len(val_idx)),
-        "test_size": int(len(test_idx)),
+        "train_size": len(train_idx),
+        "val_size": len(val_idx),
+        "test_size": len(test_idx),
         "positive_train": int(y_train.sum()),
         "positive_val": int(y_val.sum()),
         "positive_test": int(y_test.sum()),
@@ -577,8 +567,8 @@ def save_training_outputs(out_dir: Path, results: dict):
     metrics_rows = []
     for setting_name, metric_dict in [("default_0.50", results["default_metrics"]), ("tuned_threshold", results["tuned_metrics"] )]:
         row = {"setting": setting_name}
-        row.update(results["split_info"])
-        row.update(metric_dict)
+        row |= results["split_info"]
+        row |= metric_dict
         metrics_rows.append(row)
     pd.DataFrame(metrics_rows).to_csv(out_dir / "metrics_comparison.csv", index=False)
     results["threshold_df"].to_csv(out_dir / "validation_threshold_search.csv", index=False)
@@ -672,18 +662,15 @@ def main():
     print_metrics_block(f"Test metrics @ tuned threshold = {results['split_info']['best_threshold_from_val_f1']:.2f}", results["tuned_metrics"])
 
     print(f"Confusion matrix @ default threshold (rows=true, cols=pred; order={TARGET_NAMES})")
-    print(results["default_cm"])
-    print()
+    print(f"{results["default_cm"]}\n")
 
     print(f"Confusion matrix @ tuned threshold (rows=true, cols=pred; order={TARGET_NAMES})")
-    print(results["tuned_cm"])
-    print()
+    print(f"{results["tuned_cm"]}\n")
 
     print("Lead importance (summed over 64 points)")
     for _, row in results["lead_importance_df"].iterrows():
         print(f"- {row['lead']}: {row['importance']:.6f}")
-    print()
-    print(f"Saved outputs to: {out_dir.resolve()}")
+    print(f"\nSaved outputs to: {out_dir.resolve()}")
 
 
 if __name__ == "__main__":

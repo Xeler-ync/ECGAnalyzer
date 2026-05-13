@@ -72,10 +72,7 @@ def calculate_bpm_from_r_peaks(r_peaks, sampling_rate=SAMPLING_RATE):
     # Calculate average RR interval
     avg_rr_interval = np.mean(rr_intervals_sec)
 
-    # Convert to BPM
-    bpm = 60 / avg_rr_interval
-
-    return bpm
+    return 60 / avg_rr_interval
 
 
 # add functionf comment
@@ -94,14 +91,13 @@ def is_bpm_diff_significant(r_peaks, fft_bpm, adaptive_threshold=False, interval
     Returns:
         bool: True if bpm diff is significant, False otherwise
     """
-    if adaptive_threshold:
-        if interval == -1:
-            raise ValueError(
-                "interval must be specified when adaptive_threshold is True"
-            )
-        return not (
-            60 * (len(r_peaks) - 1) / interval < fft_bpm
-            and 60 * (len(r_peaks) + 1) / interval > fft_bpm
-        )
-    else:
+    if not adaptive_threshold:
         return not abs(calculate_bpm_from_r_peaks(r_peaks) - fft_bpm) < fft_bpm * 0.1
+    if interval == -1:
+        raise ValueError(
+            "interval must be specified when adaptive_threshold is True"
+        )
+    return (
+        60 * (len(r_peaks) - 1) / interval >= fft_bpm
+        or 60 * (len(r_peaks) + 1) / interval <= fft_bpm
+    )

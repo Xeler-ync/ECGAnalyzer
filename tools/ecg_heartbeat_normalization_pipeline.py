@@ -149,12 +149,10 @@ def plot_all_leads_normalized_heartbeats(
 def process_single_signal(signal_index):
     """Process a single ECG signal - designed for parallel execution"""
     X = load_raw_data(Y, SAMPLING_RATE, PATH, signal_index)
-    all_leads_normalized = {}
-
     # Process Lead II first to get R-peaks
     lead_II_idx = 1
     results_II = process_ecg_signal(X[0, :, lead_II_idx], lead_II_idx)
-    all_leads_normalized[lead_II_idx] = results_II["normalized_heartbeats"]
+    all_leads_normalized = {lead_II_idx: results_II["normalized_heartbeats"]}
     r_peaks_II = results_II["r_peaks"]
 
     # Calculate BPM from R-peaks
@@ -198,9 +196,7 @@ def process_single_signal(signal_index):
 
 
 def main():
-    print("=" * 80)
-    print("ECG Signal Processing Workflow")
-    print("=" * 80)
+    print(f"{"=" * 80}\nECG Signal Processing Workflow\n{"=" * 80}")
 
     current_backend = matplotlib.get_backend()
     matplotlib.use("Agg")
@@ -208,9 +204,10 @@ def main():
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = []
         # for signal_index in range(Y.patient_id.count()):
-        for signal_index in range(20):
-            futures.append(executor.submit(process_single_signal, signal_index))
-
+        futures.extend(
+            executor.submit(process_single_signal, signal_index)
+            for signal_index in range(20)
+        )
         for future in tqdm(
             concurrent.futures.as_completed(futures),
             total=len(futures),
@@ -223,9 +220,7 @@ def main():
                 print(f"Error processing signal: {e}")
     matplotlib.use(current_backend)
 
-    print("=" * 80)
-    print("ECG Signal Processing Workflow Completed")
-    print("=" * 80)
+    print(f"{"=" * 80}\nECG Signal Processing Workflow Completed\n{"=" * 80}")
 
 
 if __name__ == "__main__":

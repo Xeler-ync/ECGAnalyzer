@@ -55,14 +55,13 @@ r_peaks_raw = {
     ),
 }
 
-# Sanitize R peaks
-r_peaks = {}
 orig_len = len(filtered_hp)
-for name, out in r_peaks_raw.items():
-    r_peaks[name] = _round_and_clip_indices(
+r_peaks = {
+    name: _round_and_clip_indices(
         out, orig_len, sig=filtered_hp, sig_name=name
     )
-
+    for name, out in r_peaks_raw.items()
+}
 # Evaluate R peak detection method
 peak_evals = {
     method: evaluate_r_peak_detection(peaks, filtered_hp, SAMPLING_RATE)
@@ -121,11 +120,8 @@ from tools.ecg_heartbeat_normalization_pipeline import (
     plot_all_leads_normalized_heartbeats,
 )
 
-all_leads_normalized = {}
-
 lead_II_idx = 1
-all_leads_normalized[lead_II_idx] = normalized_II
-
+all_leads_normalized = {lead_II_idx: normalized_II}
 # Process all other leads using Lead II R-peaks
 for lead_idx in range(12):
     if lead_idx == lead_II_idx:
