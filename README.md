@@ -41,3 +41,36 @@ pip install -r requirements.txt
    ├── README.md
    └── requirements.txt
    ```
+
+## 🛠️ Basic Usage
+
+### 1. Data Processing & Heartbeat Extraction
+Run the main data pipeline to filter, detect R-peaks, and extract normalized heartbeats based on SCP codes or superclasses:
+```bash
+# Filter by SCP code (e.g., LVH, NORM)
+python ./tools/data.py --scp_codes LVH --min_value 100
+python ./tools/data.py --scp_codes NORM --min_value 100
+
+# Filter by Superclass (e.g., MI)
+python ./tools/data.py --superclass MI
+
+# Generate OTHERS dataset (exclude positive and pure negative)
+python ./tools/data.py --others --positive-code LVH --negative-code NORM
+python ./tools/data.py --others --positive-is-superclass --positive-superclass MI --negative-code NORM
+```
+
+### 2. Model Training & Evaluation
+Train Random Forest classifiers using the extracted normalized heartbeats:
+```bash
+# Binary classification: LVH vs NORM
+python ./train/train_lvh_norm_rf.py
+
+# Multi-class classification: LVH vs NORM vs OTHERS
+python ./train/train_lvh_norm_other_rf.py
+
+# Binary classification: MI vs NORM
+python ./train/train_mi_norm_rf.py
+
+# Multi-class classification: MI vs NORM vs OTHERS
+python ./train/train_mi_norm_other_rf.py
+```
