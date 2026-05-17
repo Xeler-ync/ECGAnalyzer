@@ -94,3 +94,105 @@ python ./predict/predict.py --model_path ./models/lvh_norm_rf.pkl --signal_index
 - File `./tools/ecg_heartbeat_normalization_pipeline.py`: Used to process all signals and plot the results.
 - File `./tools/irregular_heartbeat_visualization.py`: Used to process pre‑labeled abnormal signals and plot the results.
 - File `./tools/npy_ecg_visualizer.py`: Used to plot waveforms from `.npy` files.
+
+## 🎛️ Hyperparameters we use
+
+```json
+// rf_lvh_norm_other
+{
+    "n_estimators": 600,
+    "criterion": "entropy",
+    "max_depth": null,
+    "min_samples_split": 2,
+    "min_samples_leaf": 2,
+    "min_weight_fraction_leaf": 0.0,
+    "max_features": "sqrt",
+    "max_leaf_nodes": null,
+    "min_impurity_decrease": 0.0,
+    "bootstrap": true,
+    "oob_score": true,
+    "n_jobs": -1,
+    "random_state": 42,
+    "verbose": 0,
+    "warm_start": false,
+    "class_weight": "balanced_subsample",
+    "ccp_alpha": 0.0,
+    "max_samples": null,
+    "monotonic_cst": null
+}
+```
+
+```json
+// rf_lvh_norm
+{
+    "n_estimators": 600,
+    "criterion": "gini",
+    "max_depth": null,
+    "min_samples_split": 2,
+    "min_samples_leaf": 2,
+    "min_weight_fraction_leaf": 0.0,
+    "max_features": "log2",
+    "max_leaf_nodes": null,
+    "min_impurity_decrease": 0.0,
+    "bootstrap": true,
+    "oob_score": true,
+    "n_jobs": -1,
+    "random_state": 42,
+    "verbose": 0,
+    "warm_start": false,
+    "class_weight": { "0": 1, "1": 11 },
+    "ccp_alpha": 0.0,
+    "max_samples": null,
+    "monotonic_cst": null
+}
+```
+
+```json
+// rf_mi_norm_other
+{
+    "n_estimators": 600,
+    "criterion": "gini",
+    "max_depth": null,
+    "min_samples_split": 2,
+    "min_samples_leaf": 2,
+    "min_weight_fraction_leaf": 0.0,
+    "max_features": "sqrt",
+    "max_leaf_nodes": null,
+    "min_impurity_decrease": 0.0,
+    "bootstrap": true,
+    "oob_score": true,
+    "n_jobs": -1,
+    "random_state": 42,
+    "verbose": 0,
+    "warm_start": false,
+    "class_weight": "balanced_subsample",
+    "ccp_alpha": 0.0,
+    "max_samples": null,
+    "monotonic_cst": null
+}
+```
+
+```json
+// rf_mi_norm
+{
+    "n_estimators": 600,
+    "criterion": "gini",
+    "max_depth": null,
+    "min_samples_split": 2,
+    "min_samples_leaf": 2,
+    "min_weight_fraction_leaf": 0.0,
+    "max_features": "sqrt",
+    "max_leaf_nodes": null,
+    "min_impurity_decrease": 0.0,
+    "bootstrap": true,
+    "oob_score": true,
+    "n_jobs": -1,
+    "random_state": 42,
+    "verbose": 0,
+    "warm_start": false,
+    "class_weight": { "0": 1, "1": 3 },
+    "ccp_alpha": 0.0,
+    "max_samples": null,
+    "monotonic_cst": null
+}
+```
